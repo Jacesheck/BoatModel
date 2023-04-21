@@ -30,21 +30,22 @@ git checkout -b nameOfNewBranch
 ```
 
 6. Change some code
-7. When you are happy with your code commit it (pull to check any updates)
+7. Test code with `python boat.py`
+8. When you are happy with your code commit it (pull to check any updates)
 
 ```
 git add boat.py
 git commit
 ```
 
-8. Write a message
-9. Push to cloud
+9. Write a message
+10. Push to cloud
 
 ```
 git push
 ```
 
-10. Create pull request (or ask me)
+11. Create pull request (or ask me)
 
 ### Boat state space model
 
