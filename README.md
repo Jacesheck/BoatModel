@@ -1,6 +1,6 @@
 # Boat simulator
 
-Feel free to simulate differentially driven boat.\
+Feel free to simulate differentially driven boat.
 
 ## Contributing to the project:
 
@@ -17,8 +17,8 @@ pip install pygame
 
 ```
 cd C:/Users/{username}/Desktop/python/boat
-git clone ...
-cd BoatGame
+git clone https://github.com/Jacesheck/BoatModel.git
+cd BoatModel
 
 ```
 
