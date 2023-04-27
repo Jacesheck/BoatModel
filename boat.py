@@ -20,7 +20,7 @@ class PID:
         self.accum = 0
         self.e_prev = 0
         self.goal = 0
-    def run(self, val, goal):
+    def run(self, val, goal, new=False):
         newTime = time.time()
         dt = newTime - self.time
         self.time = newTime
@@ -29,17 +29,24 @@ class PID:
             return self.run(val, goal)
 
         e = goal - val
-        if goal == self.goal:
-            de = e - self.e_prev
-        else:
+        if new:
             self.goal = goal
             self.accum = 0
-            de = 0
+            de = 0.
+        else:
+            de: float = e - self.e_prev
         sum = self.accum
         self.accum += e * dt
         self.e_prev = e
 
-        return self.p * e + self.d * de/dt + self.i * sum
+        print(f'{self.e_prev = }')
+        print(f'{e = }')
+        print(f'{de = }')
+        print(f'{de = }')
+        print(f'{dt = }')
+        print(f'{de/dt = }')
+
+        return self.p * e + self.d * de/dt + self.i * sum * dt
 
 class Waypoint:
     def __init__(self, pos):
@@ -78,27 +85,37 @@ class Boat:
         self.b2 = 1
         self.time = time.time()
 
-        self.turnPid = PID(0.8, 0, 1000)
+        self.turnPid = PID(1, 0, 0.2)
     def pos(self):
         return (self.x[0,0], self.x[1,0])
     """
     Returns true if auto and false if manual
     """
     def auto(self, waypoint: Waypoint) -> bool:
+        new = True
+        if hasattr(self, "waypoint_prev"):
+            if waypoint == self.waypoint_prev:
+                new = False
+        self.waypoint_prev = waypoint
+
         if pygame.key.get_pressed()[pygame.K_a]:
             # Control rotation pid
             dx = waypoint.pos[0] - self.x[0,0]
             dy = waypoint.pos[1] - self.x[1,0]
             theta_goal = np.arctan2(dy, dx)
-            e_theta = theta_goal - self.x[4,0]
+            theta_cur = self.x[4,0]
+            e_theta = theta_goal - theta_cur
             if e_theta > np.pi:
-                theta_goal -= 2*np.pi
+                theta_cur += 2*np.pi
             elif e_theta < -np.pi:
-                theta_goal += 2*np.pi
-            turnPower = self.turnPid.run(self.x[4,0], theta_goal)
+                theta_cur -= 2*np.pi
+            turnPower = self.turnPid.run(theta_cur, theta_goal, new)
+            print(f'{new = }')
 
-            distPower = np.cos(e_theta)*0.5
-
+            distPower = np.cos(e_theta)**21
+            print(f'{distPower = }')
+            print(f'{turnPower = }')
+            print('')
             self.u[0,0] = normalize(distPower + turnPower, (-1, 1))
             self.u[1,0] = normalize(distPower - turnPower, (-1, 1))
 
@@ -197,7 +214,7 @@ if __name__ == "__main__":
             boat.draw(screen)
 
         for i, w in enumerate(waypoints):
-            if boat.checkWaypoint(w):
+            if i == 0 and boat.checkWaypoint(w):
                 del waypoints[i] 
             else:
                 w.draw(screen)
