@@ -5,7 +5,7 @@ Feel free to simulate differentially driven boat.
 ## Contributing to the project:
 
 1. Install [git](https://git-scm.com/downloads)
-2. Install [python](https://www.python.org/downloads/)
+2. Install [python](https://www.python.org/downloads/) **Add to PATH**
 3. Open cmd prompt or powershell and type the following commands
 
 ```
