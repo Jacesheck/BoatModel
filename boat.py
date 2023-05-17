@@ -52,7 +52,7 @@ class Waypoint:
     def __init__(self, pos):
         self.pos = pos
     def draw(self, screen):
-        pygame.draw.circle(screen, "blue", self.pos, 3)
+        pygame.draw.circle(screen, "red", self.pos, 3)
 
 class Boat:
     def __init__(self, x, y, w):
@@ -176,9 +176,9 @@ class Boat:
 
     def drawGoal(self, screen, waypoint: Waypoint | None):
         if waypoint != None:
-            pygame.draw.circle(screen, "blue", waypoint.pos, 22)
+            pygame.draw.circle(screen, "red", waypoint.pos, 22)
             pygame.draw.circle(screen, "white", waypoint.pos, 20)
-            pygame.draw.line(screen, "blue", waypoint.pos, self.pos())
+            pygame.draw.line(screen, "red", waypoint.pos, self.pos())
 
     def checkWaypoint(self, w: Waypoint):
         dx = w.pos[0] - self.x[0,0]
@@ -200,7 +200,7 @@ if __name__ == "__main__":
                 newWaypoint = Waypoint(pygame.mouse.get_pos())
                 waypoints.append(newWaypoint)
 
-        screen.fill("white")
+        screen.fill("lightblue")
         # Render everything
 
         # Auto if auto else manual
