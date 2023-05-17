@@ -7,9 +7,12 @@ screen = pygame.display.set_mode((1280, 720))
 clock = pygame.time.Clock()
 running = True
 
-def normalize(input, minmax):
-    input = max(input, min(minmax))
-    return min(input, max(minmax))
+def normalize(input1, input2, max):
+    total = abs(input1) + abs(input2)
+    if total > max:
+        input1 /= total
+        input2 /= total
+    return input1, input2
 
 class PID:
     def __init__(self, p, i, d):
@@ -85,7 +88,7 @@ class Boat:
         self.b2 = 1
         self.time = time.time()
 
-        self.turnPid = PID(1, 0, 0.2)
+        self.turnPid = PID(1, 0, 0.5)
     def pos(self):
         return (self.x[0,0], self.x[1,0])
     """
@@ -116,8 +119,9 @@ class Boat:
             print(f'{distPower = }')
             print(f'{turnPower = }')
             print('')
-            self.u[0,0] = normalize(distPower + turnPower, (-1, 1))
-            self.u[1,0] = normalize(distPower - turnPower, (-1, 1))
+            distPower, turnPower = normalize(distPower, turnPower, 1)
+            self.u[0,0] = distPower + turnPower
+            self.u[1,0] = distPower - turnPower
 
             return True
         return False
@@ -180,11 +184,11 @@ class Boat:
             pygame.draw.circle(screen, "white", waypoint.pos, 20)
             pygame.draw.line(screen, "red", waypoint.pos, self.pos())
 
-    def checkWaypoint(self, w: Waypoint):
+    def checkAtWaypoint(self, w: Waypoint, thresh=20):
         dx = w.pos[0] - self.x[0,0]
         dy = w.pos[1] - self.x[1,0]
         dist = np.sqrt(dx**2 + dy**2)
-        return dist < 20
+        return dist < thresh 
 
 
 if __name__ == "__main__":
@@ -214,7 +218,7 @@ if __name__ == "__main__":
             boat.draw(screen)
 
         for i, w in enumerate(waypoints):
-            if i == 0 and boat.checkWaypoint(w):
+            if i == 0 and boat.checkAtWaypoint(w):
                 del waypoints[i] 
             else:
                 w.draw(screen)
