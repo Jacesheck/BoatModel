@@ -10,30 +10,10 @@ COORDS_UUID = "3794c841-1b53-4029-aebb-12319386fd28"
 
 command = '' 
 
-async def print_details(address):
-    async with BleakClient(address) as client:
-        services = client.services
-        for s in services:
-            print("Service:", s)
-            print("Type:", type(s))
-            print("Characteristics", s.characteristics)
-            for c in s.characteristics:
-                print('UUID', c.uuid)
-                try:
-                    val = await client.read_gatt_char(c.uuid)
-                    print('len', len(val))
-                    print(struct.unpack('<f', val)) # Little endian
-                except Exception as e:
-                    print(e)
-            print()
-
 def debug_callback(_, val):
     print(' '*len(command), end='\r')
     print(val.decode('utf-8'))
     print(command, end='\r')
-    #print('x', struct.unpack('<f', val[:4]))
-    #print('y', struct.unpack('<f', val[4:8]))
-    #print('z', struct.unpack('<f', val[8:]))
 
 class Peripheral:
     def __init__(self, address):
@@ -93,27 +73,6 @@ async def runDevice(address):
         else:
             await peripheral.writeCommand(command)
     # TODO: finish runDevice
-
-#async def runDevice(address):
-#    coords = [8.8, 7.94, 13.782, 23.1217]
-#    byteCoords = b''
-#    for num in coords:
-#        newByte = struct.pack('<f',num)
-#        byteCoords += newByte
-#        print('Size:', len(newByte))
-#    print('Will send')
-#    print(byteCoords)
-#    central = Central(address)
-#    await central.connect()
-#    print('Waiting for enter')
-#    while not msvcrt.kbhit():
-#        await asyncio.sleep(0.1)
-#    msvcrt.getch()
-#    await central.write(byteCoords)
-#    while not msvcrt.kbhit():
-#        await asyncio.sleep(0.1)
-#    await central.stop_notify()
-
 
 async def main():
     devices = await BleakScanner.discover(1.)
