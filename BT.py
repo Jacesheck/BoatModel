@@ -57,9 +57,9 @@ class Peripheral:
 
     async def disconnect(self):
         "Disconnect and stop all notify characteristics"
-        await self.client.disconnect()
         await self.client.stop_notify(DEBUG_UUID);
         await self.client.stop_notify(TELEMETRY_UUID);
+        await self.client.disconnect()
 
     async def writeCommand(self, data: str):
         "Write a command to the client"
@@ -92,7 +92,7 @@ def getCoordsFromFile() -> bytes:
         lng = float(coord[1])
         ret += struct.pack('<d', lat)
         ret += struct.pack('<d', lng)
-    # Null terminated
+    # 0 terminated
     return ret + struct.pack('<d', 0)
 
 async def runDevice(address):
@@ -109,6 +109,7 @@ async def runDevice(address):
                 coords = getCoordsFromFile()
                 await peripheral.writeCoords(coords)
             elif command == 'x' or command == 'exit':
+                print('Disconnecting...')
                 await peripheral.disconnect()
                 running = False
                 break
