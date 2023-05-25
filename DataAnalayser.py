@@ -20,6 +20,8 @@ if __name__ == "__main__":
     Y = []
     lat = []
     lng = []
+    motor1 = []
+    motor2 = []
     for point in data:
         time.append(point[0])
         telemetry = point[1]
@@ -31,32 +33,31 @@ if __name__ == "__main__":
         gpsLat = struct.unpack('<d', telemetry[i: i+8])
         i += 8
         gpsLng = struct.unpack('<d', telemetry[i: i+8])
+        i += 8
+        power1 = struct.unpack('<l', telemetry[i: i+4])
+        print(i)
+        i += 4
+        power2 = struct.unpack('<l', telemetry[i: i+4])
+        print(i)
+        i += 4
         X.append(gpsX)
         Y.append(gpsY)
         lat.append(gpsLat)
         lng.append(gpsLng)
+        motor1.append(power1)
+        motor2.append(power2)
 
     plt.figure(1)
-    plt.title('X')
-    plt.plot(time, X)
-
-    plt.figure(2)
-    plt.title('Y')
-    plt.plot(time, Y)
-
-    plt.figure(3)
-    plt.title('Lat')
-    plt.plot(time, lat)
-
-    plt.figure(4)
-    plt.title('Lng')
-    plt.plot(time, lng)
-
-    plt.figure(5)
     plt.title('path')
     plt.plot(X, Y)
 
-    plt.figure(6)
+    plt.figure(2)
     plt.title('globe')
     plt.plot(lat, lng)
+
+    plt.figure(3)
+    plt.title('motors')
+    plt.plot(time, motor1)
+    plt.plot(time, motor2)
+
     plt.show()
