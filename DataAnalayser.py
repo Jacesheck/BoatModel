@@ -41,13 +41,13 @@ if __name__ == "__main__":
         i += 4
         rz = struct.unpack('<f', telemetry[i: i+4])
         i += 4
-        X.append(gpsX)
-        Y.append(gpsY)
-        lat.append(gpsLat)
-        lng.append(gpsLng)
-        motor1.append(power1)
-        motor2.append(power2)
-        gyro.append(rz)
+        X.append(-gpsX[0])
+        Y.append(gpsY[0])
+        lat.append(gpsLat[0])
+        lng.append(gpsLng[0])
+        motor1.append(power1[0])
+        motor2.append(power2[0])
+        gyro.append(rz[0])
 
     plt.figure(1)
     plt.title('path')
