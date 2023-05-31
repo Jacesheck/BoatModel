@@ -3,6 +3,74 @@ import numpy as np
 import struct
 import matplotlib.pyplot as plt
 import sys
+import pygame
+
+class KalmanFilter():
+    def __init__(self):
+        self.width = 0.6
+        self.x = np.array([[0.], # theta
+                           [0.]])# theta_dot
+
+        self.F = np.array([[1, 0.1],
+                           [0, 1]])
+        self.P = np.array([[90., 0.],
+                           [0., 0.]])
+        self.Q = np.array([[20., 0.],
+                           [0., 1.]])
+
+        self.I = np.array([[1., 0.],
+                           [0., 1.]])
+
+    def predict(self):
+        self.x = self.F@self.x
+        self.P
+    def update_gps(self, theta, dist, rz):
+        H = np.array([[1., 0.],
+                           [0., 1.]])
+        R = np.array([[3./dist, 0.],
+                      [0., 0.1]])
+
+        z = np.array([[theta], [rz]])
+        y = z - H@self.x
+        S = H@self.P@H.T + R
+        K = self.P@H.T@np.linalg.inv(S)
+        self.x = self.x + K@y
+        self.P = (np.eye(2) - K@H)@self.P
+
+    def update(self, rz):
+        H = np.array([[0., 1.]])
+        R = np.array([[0.1]])
+
+        z = np.array([[rz]])
+        y = z - H@self.x
+        S = H@self.P@H.T + R
+        K = self.P@H.T@np.linalg.inv(S)
+        self.x = self.x + K@y
+        self.P = (np.eye(2) - K@H)@self.P
+
+class Simulation:
+    def __init__(self):
+        self.filter = KalmanFilter()
+        self.lastPos = [0., 0.]
+    def step(self, x, y, rz):
+        x, y = y, x # Swap because trig was wrong
+        self.filter.predict()
+        if [x, y] == self.lastPos:
+            self.filter.update(rz)
+        else:
+            dx = x - self.lastPos[0]
+            dy = y - self.lastPos[1]
+            self.filter.update_gps(
+                np.arctan2(dx, dy),
+                np.sqrt(dx**2 + dy**2),
+                rz
+            )
+            self.lastPos = [x, y]
+    def show(self):
+        pygame.init()
+        screen = pygame.display.set_mode((1280, 720))
+        clock = pygame.time.Clock()
+        running = True
 
 if __name__ == "__main__":
     args = sys.argv
@@ -23,6 +91,7 @@ if __name__ == "__main__":
     motor1 = []
     motor2 = []
     gyro = []
+    sim = Simulation()
     for point in data:
         time.append(point[0])
         telemetry = point[1]
@@ -48,6 +117,8 @@ if __name__ == "__main__":
         motor1.append(power1[0])
         motor2.append(power2[0])
         gyro.append(rz[0])
+
+        sim.step(gpsX, gpsY, rz)
 
     plt.figure(1)
     plt.title('path')
