@@ -1,3 +1,4 @@
 .vimspector.json
-telemetry
-telemetry_acer
+telemetry/
+__pycache__/
+telemetry_acer/

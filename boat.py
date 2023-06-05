@@ -2,11 +2,6 @@ import pygame
 import numpy as np
 import time
 
-pygame.init()
-screen = pygame.display.set_mode((1280, 720))
-clock = pygame.time.Clock()
-running = True
-
 def normalize(input1, input2, max):
     total = abs(input1) + abs(input2)
     if total > max:
@@ -41,13 +36,6 @@ class PID:
         sum = self.accum
         self.accum += e * dt
         self.e_prev = e
-
-        print(f'{self.e_prev = }')
-        print(f'{e = }')
-        print(f'{de = }')
-        print(f'{de = }')
-        print(f'{dt = }')
-        print(f'{de/dt = }')
 
         return self.p * e + self.d * de/dt + self.i * sum * dt
 
@@ -192,6 +180,11 @@ class Boat:
 
 
 if __name__ == "__main__":
+    pygame.init()
+    screen = pygame.display.set_mode((1280, 720))
+    clock = pygame.time.Clock()
+    running = True
+
     boat = Boat(300, 300, 20)
     waypoints = []
     while running:
