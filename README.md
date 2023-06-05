@@ -11,6 +11,8 @@ Feel free to simulate differentially driven boat.
 ```
 pip install numpy
 pip install pygame
+pip install bleak
+pip install matplotlib
 ```
 
 4. Clone project into file of choice, example
@@ -30,7 +32,7 @@ git checkout -b nameOfNewBranch
 ```
 
 6. Change some code
-7. Test code with `python boat.py`
+7. Run/Test code with `python boat.py`
 8. When you are happy with your code commit it (pull to check any updates)
 
 ```
