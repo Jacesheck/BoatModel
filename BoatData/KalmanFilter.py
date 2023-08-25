@@ -23,6 +23,7 @@ from Point import Point
 class KalmanFilter():
     def __init__(self):
         self.w = 0.8 # Width of boat
+        "State space"
         self.x = np.array([[0.], # x
                            [0.], # y
                            [0.], # v_x
@@ -30,7 +31,7 @@ class KalmanFilter():
                            [0.], # theta
                            [0.]])# theta_dot
 
-        # Initial uncertainty
+        "Initial uncertainty"
         self.P = np.array([[30., 0., 0., 0., 0., 0.],
                            [0., 30., 0., 0., 0., 0.],
                            [0., 0., 5., 0., 0., 0.],
@@ -38,7 +39,7 @@ class KalmanFilter():
                            [0., 0., 0., 0., 180., 0.],
                            [0., 0., 0., 0., 0., 0.]])
 
-        # Process uncertainty
+        "Process uncertainty"
         self.Q = np.array([[.5, 0., 0., 0., 0., 0.],
                            [0., .5, 0., 0., 0., 0.],
                            [0., 0., 5., 0., 0., 0.],
@@ -46,6 +47,7 @@ class KalmanFilter():
                            [0., 0., 0., 0., 1., 0.],
                            [0., 0., 0., 0., 0., 2.]])
 
+        "Input matrix"
         self.B = np.array([[0., 0.],
                            [0., 0.],
                            [1., 1.],
@@ -53,14 +55,15 @@ class KalmanFilter():
                            [0., 0.],
                            [1., -1.]])
 
-        self.b1         = 0.01 # drag on water
-        self.b2         = 1 # Rotational drag
-        self.gpsNoise   = 0
+        self.b1         = 4. # drag on water
+        self.b2         = 3. # Rotational drag
+        self.gpsNoise   = 2.
         self.gyroNoise  = 0.4
-        self.motorForce = -0.00001
+        self.motorForce = 0.001
+        self.motorTorque = 0.01
 
         self.turnPid = PID(1, 0, 0.5)
-
+        self.gpsUpdated = [] # for visual
 
     def predict(self, u: np.ndarray, dt: float):
         """
@@ -77,17 +80,17 @@ class KalmanFilter():
                       [0., 0., 0., 1.-dt*vel*self.b1, 0., 0.],
                       [0., 0., 0., 0., 1., dt],
                       [0., 0., 0., 0., 0., delta_th]], dtype=np.float64)
+        print(f'f {F}')
 
-        print(vel)
         self.B = np.array([[0, 0],
                            [0, 0],
-                           [self.motorForce*dt*np.sin(theta_r), self.motorForce*dt*np.sin(theta_r)],
                            [self.motorForce*dt*np.cos(theta_r), self.motorForce*dt*np.cos(theta_r)],
+                           [self.motorForce*dt*np.sin(theta_r), self.motorForce*dt*np.sin(theta_r)],
                            [0, 0],
-                           [self.motorForce*0.5*dt*self.w/2, -self.motorForce*0.5*dt*self.w/2]])
+                           [self.motorTorque*0.5*dt*self.w/2, -self.motorTorque*0.5*dt*self.w/2]])
 
         self.x = F@self.x + self.B@u
-        self.P = F@self.P + self.Q
+        self.P = F@self.P@F.T + self.Q
 
 
     def wrap180(self, angle: float) -> float:
@@ -142,6 +145,7 @@ class KalmanFilter():
         K      = self.P@H.T@np.linalg.inv(S)
         self.x = self.x + K@y
         self.P = (np.eye(6) - K@H)@self.P
+        self.gpsUpdated.append(True)
 
 
     def update_nogps(self, data: dict):
@@ -155,5 +159,6 @@ class KalmanFilter():
         K  = self.P@H.T@np.linalg.inv(S)
         self.x = self.x + K@y
         self.P = (np.eye(6) - K@H)@self.P
+        self.gpsUpdated.append(False)
 
 

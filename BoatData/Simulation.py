@@ -56,7 +56,6 @@ class Simulation:
         pygame.draw.rect(screen, "red", leftMotor)
         pygame.draw.rect(screen, "green", rightMotor)
 
-
     def drawVel(self, screen):
         centre = (1160, 300)
         velx = self.stateHistory[self.i, 2, 0] * 100
@@ -65,14 +64,17 @@ class Simulation:
         pygame.draw.circle(screen, 'black', centre, 2)
         pygame.draw.line(screen, 'black', centre, endpoint)
 
-
-
     def drawPath(self, screen):
         for i in range(10, len(self.stateHistory)-1):
             thisPoint = (self.stateHistory[i][0, 0], self.stateHistory[i][1, 0])
             nextPoint = (self.stateHistory[i+1][0, 0], self.stateHistory[i+1][1, 0])
             pygame.draw.line(screen, "blue", thisPoint, nextPoint)
-    
+
+    def drawGPS(self, screen):
+        centre = (1100, 500)
+        if self.filter.gpsUpdated[self.i]:
+            print("drawing circular")
+            pygame.draw.circle(screen, 'red', centre, 50)
 
     def show(self):
         pygame.init()
@@ -85,6 +87,7 @@ class Simulation:
         screen = pygame.display.set_mode((1280, 720))
         while running:
             for event in pygame.event.get():
+                # Check quit
                 if event.type == pygame.QUIT:
                     running = False
                     break
@@ -94,10 +97,12 @@ class Simulation:
 
             screen.fill("lightblue")
 
+            # Start drawing
             self.drawPath(screen)
             self.drawBoat(screen)
             self.drawMotors(screen)
             self.drawVel(screen)
+            self.drawGPS(screen)
 
             pygame.display.flip()
         pygame.quit()

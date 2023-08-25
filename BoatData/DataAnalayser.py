@@ -5,7 +5,6 @@ import sys
 import numpy as np
 from Simulation import Simulation
 
-
 if __name__ == "__main__":
     args = sys.argv
     if len(args) != 2:
@@ -50,7 +49,7 @@ if __name__ == "__main__":
         decodedData['power1'] = -1500 + decodedData['power1']
         decodedData['power2'] = +1500 - decodedData['power2']
 
-        X.append(-decodedData['gpsX'])
+        X.append(decodedData['gpsX'])
         Y.append(decodedData['gpsY'])
         lat.append(decodedData['gpsLat'])
         lng.append(decodedData['gpsLng'])
