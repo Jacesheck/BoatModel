@@ -73,7 +73,6 @@ class Simulation:
     def drawGPS(self, screen):
         centre = (1100, 500)
         if self.filter.gpsUpdated[self.i]:
-            print("drawing circular")
             pygame.draw.circle(screen, 'red', centre, 50)
 
     def show(self):
