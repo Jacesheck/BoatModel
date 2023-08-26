@@ -68,8 +68,8 @@ F=
 \left(\begin{array}{cc}
 1 & 0 & dt & 0 & 0 & 0\\
 0 & 1 & 0 & dt & 0 & 0\\
-0 & 0 & 1-dt\cdot v\cdot b_1 & 0 & 0 & 0\\
-0 & 0 & 0 & 1-dt\cdot v\cdot b_1 & 0 &  0\\
+0 & 0 & 1-dt\cdot b_1 & 0 & 0 & 0\\
+0 & 0 & 0 & 1-dt\cdot b_1 & 0 &  0\\
 0 & 0 & 0 & 0 & 1 & dt\\
 0 & 0 & 0 & 0 & 0 & 1-dt\cdot b_2
 \end{array}\right)
