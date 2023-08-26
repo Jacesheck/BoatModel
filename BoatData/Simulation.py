@@ -65,6 +65,7 @@ class Simulation:
         if self.lastTime > 0: # Check initialised
             dt = data['timestamp'] - self.lastTime
         self.lastTime = data['timestamp']
+        dt = 0.1
 
         u = np.array([[data['power1'], data['power2']]]).T
         self.filter.predict(u, dt)
