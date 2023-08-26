@@ -47,7 +47,7 @@ class Waypoint:
 
 class Boat:
     def __init__(self, x, y, w):
-        self.boatImg = pygame.image.load('boat.PNG')
+        self.boatImg = pygame.image.load('boat.png')
 
         self.w = w
         self.x = np.array([[x], # x
@@ -72,7 +72,7 @@ class Boat:
                            [1., -1.]])
 
         self.u = np.array([[0., 0.]]).transpose()
-        self.b1 = 0.01
+        self.b1 = 1
         self.b2 = 1
         self.time = time.time()
 
@@ -136,12 +136,11 @@ class Boat:
 
         theta = self.x[4,0]
         delta_th = 1-dt*self.b2
-        vel = np.sqrt(self.x[2,0]**2 + self.x[3,0]**2)
 
         self.F = np.array([[1., 0., dt, 0., 0., 0.],
                            [0., 1., 0., dt, 0., 0.],
-                           [0., 0., 1.-dt*vel*self.b1, 0., 0., 0.],
-                           [0., 0., 0., 1.-dt*vel*self.b1, 0., 0.],
+                           [0., 0., np.max([0, 1.-dt*self.b1]), 0., 0., 0.],
+                           [0., 0., 0., np.max([0, 1.-dt*self.b1]), 0., 0.],
                            [0., 0., 0., 0., 1., dt],
                            [0., 0., 0., 0., 0., delta_th]])
 

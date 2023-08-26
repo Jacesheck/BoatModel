@@ -1,51 +1,10 @@
 import pickle
-import struct
 import matplotlib.pyplot as plt
 import sys
 import numpy as np
 
 from Simulation import Simulation
-
-IDLE_POWER: int = 1500
-
-def decode_data(bytes) -> dict[str, list[int] | list[float]]:
-    # Create emptry dict
-    decoded_data = {
-        'timestamp': [],
-        'gpsX': [],
-        'gpsY': [],
-        'gpsLat': [],
-        'gpsLng': [],
-        'power1': [],
-        'power2': [],
-        'rz': [],
-
-    } 
-
-    for point in bytes:
-        decoded_data['timestamp'].append(point[0])
-        telemetry = point[1]
-        i = 0
-        decoded_data['gpsX'].append(struct.unpack('<d', telemetry[i: i+8])[0])
-        i += 8
-        decoded_data['gpsY'].append(struct.unpack('<d', telemetry[i: i+8])[0])
-        i += 8
-        decoded_data['gpsLat'].append(struct.unpack('<d', telemetry[i: i+8])[0])
-        i += 8
-        decoded_data['gpsLng'].append(struct.unpack('<d', telemetry[i: i+8])[0])
-        i += 8
-        decoded_data['power1'].append(struct.unpack('<l', telemetry[i: i+4])[0])
-        i += 4
-        decoded_data['power2'].append(struct.unpack('<l', telemetry[i: i+4])[0])
-        i += 4
-        decoded_data['rz'].append(struct.unpack('<f', telemetry[i: i+4])[0])
-        i += 4
-
-        # Normalise motor powers
-        # TODO: Debug here
-        decoded_data['power1'][-1] = -IDLE_POWER + decoded_data['power1'][-1]
-        decoded_data['power2'][-1] = +IDLE_POWER - decoded_data['power2'][-1]
-    return decoded_data
+from DataObject import DataObject
     
 def plot_raw(X, Y, lat, lng, motor1, motor2, gyro, timestamps):
         timestamps = np.array(timestamps) - timestamps[0]
@@ -95,13 +54,14 @@ if __name__ == "__main__":
     args = sys.argv
     if len(args) != 2:
         print('No filename given')
-        exit()
+        #exit()
+    args.append("Telemetry/Path_FriMay2612.48.312023")
 
     filename = args[1]
     with open(filename, 'rb') as f:
         text = f.read()
     data = pickle.loads(text)
-    decoded_data = decode_data(data)
+    decoded_data = DataObject(data)
 
     timestamps = decoded_data['timestamp']
     X = decoded_data['gpsX']
@@ -111,11 +71,23 @@ if __name__ == "__main__":
     motor1 = decoded_data['power1']
     motor2 = decoded_data['power2']
     gyro = decoded_data['rz']
+    # TODO: Debug above
 
-    #sim = Simulation()
-    #for decoded_point in decoded_data:
-    #    sim.step(decoded_point)
+    sim = Simulation(decoded_data)
+    sim.run()
+    sim.showStatic()
+    while(1):
+        print("\n(tune) (show) (exit)")
+        command = input("Command:")
+        if command == "show":
+            sim.run()
+            sim.show()
+        elif command == "tune":
+            sim.tune()
+        elif command == "exit":
+            exit()
+        else:
+            print(f"Invalid command: {command}")
 
-    plot_raw(X, Y, lat, lng, motor1, motor2, gyro, timestamps)
-    
-    #sim.show()
+    # Plot raw values (useful for debugging)
+    #plot_raw(X, Y, lat, lng, motor1, motor2, gyro, timestamps)

@@ -22,6 +22,16 @@ from Point import Point
 
 class KalmanFilter():
     def __init__(self):
+        self.reset()
+
+        self.b1         = 2. # drag on water
+        self.b2         = 3. # Rotational drag
+        self.gpsNoise   = 2.
+        self.gyroNoise  = 0.4
+        self.motorForce = 0.001
+        self.motorTorque = -50 
+
+    def reset(self):
         self.w = 0.8 # Width of boat
         "State space"
         self.x = np.array([[0.], # x
@@ -55,15 +65,20 @@ class KalmanFilter():
                            [0., 0.],
                            [1., -1.]])
 
-        self.b1         = 4. # drag on water
-        self.b2         = 3. # Rotational drag
-        self.gpsNoise   = 2.
-        self.gyroNoise  = 0.4
-        self.motorForce = 0.001
-        self.motorTorque = 0.01
-
         self.turnPid = PID(1, 0, 0.5)
         self.gpsUpdated = [] # for visual
+
+
+    def showVars(self):
+        print(f"""
+        b1 (water drag)     : {self.b1}
+        b2 (rotational drag): {self.b2}
+        gpsNoise            : {self.gpsNoise}
+        gyroNoise           : {self.gyroNoise}
+        motorForce          : {self.motorForce}
+        motorTorque         : {self.motorTorque}
+        """)
+
 
     def predict(self, u: np.ndarray, dt: float):
         """
@@ -72,15 +87,14 @@ class KalmanFilter():
         """
         theta_r  = np.deg2rad(self.x[4,0])
         delta_th = 1-dt*self.b2
-        vel      = np.sqrt(self.x[2,0]**2 + self.x[3,0]**2)
 
         F = np.array([[1., 0., dt, 0., 0., 0.],
                       [0., 1., 0., dt, 0., 0.],
-                      [0., 0., 1.-dt*vel*self.b1, 0., 0., 0.],
-                      [0., 0., 0., 1.-dt*vel*self.b1, 0., 0.],
+                      [0., 0., np.max([0, 1.-dt*self.b1]), 0., 0., 0.],
+                      [0., 0., 0., np.max([0, 1.-dt*self.b1]), 0., 0.],
                       [0., 0., 0., 0., 1., dt],
                       [0., 0., 0., 0., 0., delta_th]], dtype=np.float64)
-        print(f'f {F}')
+        #F = np.eye(6)
 
         self.B = np.array([[0, 0],
                            [0, 0],
@@ -121,7 +135,7 @@ class KalmanFilter():
             data['course_gps'] = self.lastGPS.courseTo(gpsLoc)
             self.update_gps(data)
         self.wrapTheta()
-        self.lastGPS = gpsLoc 
+        self.lastGPS = gpsLoc
 
 
     def update_gps(self, data: dict):
@@ -160,5 +174,3 @@ class KalmanFilter():
         self.x = self.x + K@y
         self.P = (np.eye(6) - K@H)@self.P
         self.gpsUpdated.append(False)
-
-
