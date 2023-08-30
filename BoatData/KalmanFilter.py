@@ -28,9 +28,9 @@ class KalmanFilter():
         self.b1         = 2. # drag on water
         self.b2         = 3. # Rotational drag
         self.gpsNoise   = 2.
-        self.gyroNoise  = 0.4
+        self.gyroNoise  = 0
         self.motorForce = 0.001
-        self.motorTorque = -50 
+        self.motorTorque = 50 
 
     def reset(self):
         """Set all states to initial defaults"""

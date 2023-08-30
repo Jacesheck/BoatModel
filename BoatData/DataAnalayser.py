@@ -30,6 +30,9 @@ def main():
 
     sim = Simulation(decoded_data)
     sim.run()
+    sim.createScaleFromGPS(decoded_data, 1000, 600)
+    sim.clip(10, 400)
+    sim.scaleStateHistory()
     sim.showStatic()
     while(1):
         print("\n(tune) (show) (exit)")

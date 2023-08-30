@@ -5,6 +5,9 @@ import numpy as np
 import time
 import pygame
 
+# Spacing for window
+DISPLAY_SPACING: int = 10
+
 class Simulation:
     def __init__(self, data: DataObject):
         """Simulation window object
@@ -78,7 +81,6 @@ class Simulation:
         self.reset()
         for i in range(len(self.data)):
             self.step(self.data.at(i))
-        self.clipAndScale(10, 400) # TODO: Move somewhere else
 
 
     def step(self, data: dict[str, float | int]):
@@ -101,21 +103,21 @@ class Simulation:
         self.dtHistory.append(dt)
 
 
-    def scaleArrayToMinMax(self, history: np.ndarray, width: int, height: int) -> None:
-        """Scale 
+    def createScaleFromGPS(self, telemetry: DataObject, width: int, height: int):
+        """Create scale data from raw gps points
         ---------
         Parameters
-        history : np.array
-            An array of x states, note x is 2d vertical array
+        states : DataObject
+            Deserialised raw telemetry
         width : int
             Expected showing width of path display
         height : int
             Expected showing height of path display
         """
-        x_min = np.min(history[:, 0, 0])
-        x_max = np.max(history[:, 0, 0])
-        y_min = np.min(history[:, 1, 0])
-        y_max = np.max(history[:, 1, 0])
+        x_min = min(telemetry["gpsX"])
+        x_max = max(telemetry["gpsX"])
+        y_min = min(telemetry["gpsY"])
+        y_max = max(telemetry["gpsY"])
 
         x_old_range = x_max - x_min
         y_old_range = y_max - y_min
@@ -124,9 +126,19 @@ class Simulation:
         y_scale_factor = height / y_old_range
 
         scale_factor = np.min([x_scale_factor, y_scale_factor])
+        self.scale_m = np.array([[scale_factor, 0],
+                                 [0, -scale_factor]])
+        self.scale_c = np.array([[DISPLAY_SPACING],
+                                 [height - DISPLAY_SPACING]])
+        self.gps_min = np.array([[x_min],
+                                 [y_min]])
 
-        history[:, 0] = (history[:, 0] - x_min)*scale_factor
-        history[:, 1] = (history[:, 1] - y_min)*scale_factor
+    def scaleStateHistory(self):
+        """Apply scaling to states
+        """
+        for i in range(len(self.stateHistory)):
+            self.stateHistory[i, :2] = self.scale_m@(self.stateHistory[i, :2] - self.gps_min) + self.scale_c
+
 
     def drawBoat(self, screen):
         "Draw boat"
@@ -134,7 +146,7 @@ class Simulation:
         pos = (self.stateHistory[self.i, 0, 0], self.stateHistory[self.i, 1, 0])
         theta = np.deg2rad(self.stateHistory[self.i, 4, 0])
         endpos = (pos[0] + length*np.sin(theta),
-                  pos[1] + length*np.cos(theta))
+                  pos[1] - length*np.cos(theta)) # negative because origin TL
 
         pygame.draw.circle(screen, "black", pos, 3)
         pygame.draw.line(screen, "black", pos, endpos)
@@ -152,7 +164,7 @@ class Simulation:
         "Draw velocity vector bars"
         centre = (1160, 300)
         vel_x = self.stateHistory[self.i, 2, 0] * 100
-        vel_y = self.stateHistory[self.i, 3, 0] * 100
+        vel_y = -self.stateHistory[self.i, 3, 0] * 100 # Negative because origin at TL
         endpoint = (centre[0] + vel_x, centre[1] + vel_y)
         pygame.draw.circle(screen, 'black', centre, 2)
         pygame.draw.line(screen, 'black', centre, endpoint)
@@ -177,8 +189,8 @@ class Simulation:
         if self.filter.gpsUpdated[self.i]:
             pygame.draw.circle(screen, 'red', centre, 50)
 
-    def clipAndScale(self, start: int, end:int):
-        """Clip and scale x state history
+    def clip(self, start: int, end:int):
+        """Clip state history
         --------
         Paramters
         start : int
@@ -191,11 +203,6 @@ class Simulation:
         self.stateHistory = np.array(self.tempStateHistory[start:-end])
         self.motorHistory = np.array(self.tempMotorHistory[start:-end])
         self.dtHistory = self.dtHistory[start:-end]
-
-        # Scale
-        # TODO: Move this to a better place
-        # FIX: do on raw gps?
-        self.scaleArrayToMinMax(self.stateHistory[:, :, 0], 1000, 600)
 
     def showStatic(self):
         "Only shows static path"
