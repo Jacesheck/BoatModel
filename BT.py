@@ -2,11 +2,9 @@ import asyncio
 import re
 import struct
 from bleak import BleakClient, BleakScanner
-import msvcrt
+from Command import Command
 import time
 import pickle
-import sys
-import select
 
 DEBUG_UUID     = "45c1eda2-4473-42a3-8143-dc79c30a64bf"
 CMD_UUID       = "05c6cc87-7888-4588-b794-92bdf9a29330"
@@ -14,8 +12,9 @@ COORDS_UUID    = "3794c841-1b53-4029-aebb-12319386fd28"
 TELEMETRY_UUID = "ccc03716-4f66-4cb8-b6fd-9b2278587add"
 
 TELEMETRY_FILE = "telemetry/" + time.asctime().replace(':','.').replace(' ','')
+DEBUG_FILE = "debug.txt"
 
-command = '' 
+LOOP_PERIOD = 0.01 # s
 
 class TelemetryRecorder:
     def __init__(self):
@@ -51,10 +50,9 @@ class Peripheral:
         self.telemetry = TelemetryRecorder()
 
     def debug_callback(self, _, val):
-        "Callback used for debug messages"
-        print(' '*len(command), end='\r')
-        print(val.decode('utf-8'))
-        print(command, end='\r')
+        "Callback used for debug messages from arduino"
+        with open(DEBUG_FILE, 'a') as f:
+            f.write(f"[{time.time()}] : {val.decode('utf-8')}\n")
 
     async def connect(self):
         "Connect to bluetooth client and setup notify characteristics"
@@ -93,29 +91,6 @@ class Peripheral:
         """
         await self.client.write_gatt_char(COORDS_UUID, data, True)
 
-def nonBlockingInput() -> str:
-    """Allow for non-blocking input
-    -------
-    Return command : sr
-    """
-    global command
-    if sys.platform == "win32":
-        if msvcrt.kbhit():
-            char = msvcrt.getch()
-            if char == b'\r':
-                copy = command
-                command = ''
-                return copy
-            else:
-                command += char.decode('utf-8')
-                print(command, end='\r')
-    else:
-        input_ready, _, _ = select.select([sys.stdin], [], [], 0)
-        if input_ready:
-            return sys.stdin.readline().rstrip()
-
-    return ""
-
 def getCoordsFromFile() -> bytes:
     """Retrieve coordinates from file and convert to doubles
     ------
@@ -140,27 +115,28 @@ async def runDeviceLoop(address: str):
         MAC address of arduino
     """
     running = True
+    command = Command()
     while running:
         peripheral = Peripheral(address)
         await peripheral.connect()
 
         while peripheral.isConnected():
-            command = nonBlockingInput()
-            if command == None:
-                await asyncio.sleep(0.01)
-            elif command == 's' or command == 'send':
+            c = command.getNonBlock()
+            if c == None:
+                await asyncio.sleep(LOOP_PERIOD)
+            elif c == 's' or c == 'send':
                 coords = getCoordsFromFile()
                 await peripheral.writeCoords(coords)
-            elif command == 'x' or command == 'exit':
+            elif c == 'x' or c == 'exit':
                 print('Disconnecting...')
                 await peripheral.disconnect()
                 running = False
                 break
-            elif command == 't' or command == 'telemetry':
+            elif c == 't' or c == 'telemetry':
                 peripheral.telemetry.save()
                 print('Telemetry saved')
             else:
-                await peripheral.writeCommand(command)
+                await peripheral.writeCommand(c)
             # TODO: finish runDevice
         print('Device disconnected')
 
