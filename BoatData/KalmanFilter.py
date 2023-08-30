@@ -28,9 +28,9 @@ class KalmanFilter():
         self.b1         = 2. # drag on water
         self.b2         = 3. # Rotational drag
         self.gpsNoise   = 2.
-        self.gyroNoise  = 0
+        self.gyroNoise  = 0.1
         self.motorForce = 0.001
-        self.motorTorque = 50 
+        self.motorTorque = 50
 
     def reset(self):
         """Set all states to initial defaults"""
@@ -104,12 +104,12 @@ class KalmanFilter():
                       [0., 0., 0., 0., 0., delta_th]], dtype=np.float64)
         #F = np.eye(6)
 
-        self.B = np.array([[0, 0],
-                           [0, 0],
-                           [self.motorForce*dt*np.cos(theta_r), self.motorForce*dt*np.cos(theta_r)],
+        self.B = np.array([[0., 0.],
+                           [0., 0.],
                            [self.motorForce*dt*np.sin(theta_r), self.motorForce*dt*np.sin(theta_r)],
-                           [0, 0],
-                           [self.motorTorque*0.5*dt*self.w/2, -self.motorTorque*0.5*dt*self.w/2]])
+                           [self.motorForce*dt*np.cos(theta_r), self.motorForce*dt*np.cos(theta_r)],
+                           [0., 0.],
+                           [self.motorTorque*0.5*dt*self.w/2., -self.motorTorque*0.5*dt*self.w/2.]])
 
         self.x = F@self.x + self.B@u
         self.P = F@self.P@F.T + self.Q
@@ -205,7 +205,7 @@ class KalmanFilter():
         data : dict
             Dict containing gyro data
         """
-        rz = data['rz']
+        rz = -data['rz']
         H  = np.array([[0., 0., 0., 0., 0., 1.]])
         R  = np.array([[self.gyroNoise]]) # Tune for no gps
 

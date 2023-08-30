@@ -81,7 +81,9 @@ class Simulation:
         self.reset()
         for i in range(len(self.data)):
             self.step(self.data.at(i))
-
+        self.stateHistory = np.array(self.tempStateHistory)
+        self.motorHistory = np.array(self.tempMotorHistory)
+        self.scaleStateHistory()
 
     def step(self, data: dict[str, float | int]):
         """Run the kalman filter predict and update cycles"""
@@ -103,7 +105,7 @@ class Simulation:
         self.dtHistory.append(dt)
 
 
-    def createScaleFromGPS(self, telemetry: DataObject, width: int, height: int):
+    def createScaleFromGPS(self, width: int, height: int):
         """Create scale data from raw gps points
         ---------
         Parameters
@@ -114,10 +116,10 @@ class Simulation:
         height : int
             Expected showing height of path display
         """
-        x_min = min(telemetry["gpsX"])
-        x_max = max(telemetry["gpsX"])
-        y_min = min(telemetry["gpsY"])
-        y_max = max(telemetry["gpsY"])
+        x_min = min(self.data["gpsX"])
+        x_max = max(self.data["gpsX"])
+        y_min = min(self.data["gpsY"])
+        y_max = max(self.data["gpsY"])
 
         x_old_range = x_max - x_min
         y_old_range = y_max - y_min
@@ -139,6 +141,8 @@ class Simulation:
         for i in range(len(self.stateHistory)):
             self.stateHistory[i, :2] = self.scale_m@(self.stateHistory[i, :2] - self.gps_min) + self.scale_c
 
+    def scalePoint(self, point: np.ndarray):
+        point = self.scale_m@(point - self.gps_min) + self.scale_c
 
     def drawBoat(self, screen):
         "Draw boat"
@@ -179,6 +183,7 @@ class Simulation:
     def drawGPSPoints(self, screen):
         "Draw GPS points"
         for i in range(len(self.data)):
+            # TODO: Add scaling
             centre = (self.data.at(i)["gpsX"], self.data.at(i)["gpsY"])
             #centre[0] = self.scaleArrayToMinMax(0, 1000)
             pygame.draw.circle(screen, 'red', centre, 1)
@@ -200,8 +205,8 @@ class Simulation:
             Length from end of array
         """
         # Clip
-        self.stateHistory = np.array(self.tempStateHistory[start:-end])
-        self.motorHistory = np.array(self.tempMotorHistory[start:-end])
+        self.stateHistory = self.stateHistory[start:-end]
+        self.motorHistory = self.motorHistory[start:-end]
         self.dtHistory = self.dtHistory[start:-end]
 
     def showStatic(self):

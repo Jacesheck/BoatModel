@@ -53,5 +53,3 @@ class Point:
         if angle < 0:
             angle += 360
         return float(angle)
-
-

@@ -29,10 +29,9 @@ def main():
     #gyro = decoded_data['rz']
 
     sim = Simulation(decoded_data)
+    sim.createScaleFromGPS(1000, 600)
     sim.run()
-    sim.createScaleFromGPS(decoded_data, 1000, 600)
-    sim.clip(10, 400)
-    sim.scaleStateHistory()
+    #sim.clip(10, 1)
     sim.showStatic()
     while(1):
         print("\n(tune) (show) (exit)")
