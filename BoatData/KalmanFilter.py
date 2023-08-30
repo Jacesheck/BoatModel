@@ -41,7 +41,7 @@ class KalmanFilter():
                            [0.], # y
                            [0.], # v_x
                            [0.], # v_y
-                           [0.], # theta
+                           [0.], # theta (heading)
                            [0.]])# theta_dot
 
         "Initial uncertainty"
@@ -93,7 +93,7 @@ class KalmanFilter():
         dt : float
             Delta time
         """
-        theta_r  = np.deg2rad(self.x[4,0])
+        theta_r  = np.deg2rad(self.x[4,0]) # Heading
         delta_th = 1-dt*self.b2
 
         F = np.array([[1., 0., dt, 0., 0., 0.],
