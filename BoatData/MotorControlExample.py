@@ -1,6 +1,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
+# Normalize motor trials
+
 def normalize(input1, input2, maxi):
     total = abs(input1) + abs(input2)
     if total > maxi:

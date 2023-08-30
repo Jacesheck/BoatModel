@@ -7,6 +7,12 @@ import pygame
 
 class Simulation:
     def __init__(self, data: DataObject):
+        """Simulation window object
+        -------
+        Parameters
+        data : DataObject
+            The deserialised telemetry of the boat journey
+        """
         self.filter = KalmanFilter()
         self.lastPos = [0., 0.]
         self.data: DataObject = data
@@ -16,13 +22,22 @@ class Simulation:
         self.screen = pygame.display.set_mode((1280, 720))
 
     def reset(self):
-        self.lastTime = -1
+        "Reset history arrays"
+        self.lastTime: float = -1
         self.tempStateHistory = [] # Eventually becomes stateHistory np.array
         self.tempMotorHistory = [] # Eventually becomes motorHistory np.array
         self.dtHistory = []
 
     def tuneParam(self, param: str):
-        "Returns after exit"
+        """ Start the tuning process with a parameter eg(b1)
+
+        ----------
+        Parameters
+        param : str
+            The parameter to start tuning
+
+        NOTE: Returns after "exit" command
+        """
         while True:
             value: float;
             str_value = input("Value: ")
@@ -41,7 +56,11 @@ class Simulation:
             self.showStatic()
 
     def tune(self):
-        "Returns after exit"
+        """Enter tuning mode
+        Allows selection of parameter to tune
+        -----------
+        NOTE: Returns on "exit" command
+        """
         while True:
             self.filter.showVars()
             param = input("Param: ")
@@ -54,24 +73,28 @@ class Simulation:
 
     
     def run(self):
+        """Run the simulation with the passed data object
+        """
         self.reset()
         for i in range(len(self.data)):
             self.step(self.data.at(i))
-        self.clipAndScale(10, 400)
+        self.clipAndScale(10, 400) # TODO: Move somewhere else
 
 
     def step(self, data: dict[str, float | int]):
+        """Run the kalman filter predict and update cycles"""
         dt = 0
         if self.lastTime > 0: # Check initialised
             dt = data['timestamp'] - self.lastTime
         self.lastTime = data['timestamp']
         dt = 0.1
 
-        u = np.array([[data['power1'], data['power2']]]).T
-        self.filter.predict(u, dt)
-
+        # Make sure arrays are same sizes
         assert(len(self.dtHistory) == len(self.tempStateHistory))
         assert(len(self.tempMotorHistory) == len(self.tempStateHistory))
+
+        u = np.array([[data['power1'], data['power2']]]).T
+        self.filter.predict(u, dt)
         self.filter.update(data)
         self.tempStateHistory.append(self.filter.x)
         self.tempMotorHistory.append(u)
@@ -79,10 +102,20 @@ class Simulation:
 
 
     def scaleArrayToMinMax(self, history: np.ndarray, width: int, height: int) -> None:
-        x_min = np.min(history[:, 0])
-        x_max = np.max(history[:, 0])
-        y_min = np.min(history[:, 1])
-        y_max = np.max(history[:, 1])
+        """Scale 
+        ---------
+        Parameters
+        history : np.array
+            An array of x states, note x is 2d vertical array
+        width : int
+            Expected showing width of path display
+        height : int
+            Expected showing height of path display
+        """
+        x_min = np.min(history[:, 0, 0])
+        x_max = np.max(history[:, 0, 0])
+        y_min = np.min(history[:, 1, 0])
+        y_max = np.max(history[:, 1, 0])
 
         x_old_range = x_max - x_min
         y_old_range = y_max - y_min
@@ -96,6 +129,7 @@ class Simulation:
         history[:, 1] = (history[:, 1] - y_min)*scale_factor
 
     def drawBoat(self, screen):
+        "Draw boat"
         length = 10
         pos = (self.stateHistory[self.i, 0, 0], self.stateHistory[self.i, 1, 0])
         theta = np.deg2rad(self.stateHistory[self.i, 4, 0])
@@ -106,6 +140,7 @@ class Simulation:
         pygame.draw.line(screen, "black", pos, endpos)
 
     def drawMotors(self, screen):
+        "Draw Motor display bars"
         motor1 = self.motorHistory[self.i, 0, 0]/2
         motor2 = self.motorHistory[self.i, 1, 0]/2
         left_motor   = pygame.Rect(1000, min(300-motor1, 300), 20, abs(motor1))
@@ -114,6 +149,7 @@ class Simulation:
         pygame.draw.rect(screen, "green", right_motor)
 
     def drawVel(self, screen):
+        "Draw velocity vector bars"
         centre = (1160, 300)
         vel_x = self.stateHistory[self.i, 2, 0] * 100
         vel_y = self.stateHistory[self.i, 3, 0] * 100
@@ -122,33 +158,47 @@ class Simulation:
         pygame.draw.line(screen, 'black', centre, endpoint)
 
     def drawPath(self, screen):
+        "Draw a line path"
         for i in range(len(self.stateHistory)-1):
             thisPoint = (self.stateHistory[i][0, 0], self.stateHistory[i][1, 0])
             nextPoint = (self.stateHistory[i+1][0, 0], self.stateHistory[i+1][1, 0])
             pygame.draw.line(screen, "blue", thisPoint, nextPoint)
 
     def drawGPSPoints(self, screen):
+        "Draw GPS points"
         for i in range(len(self.data)):
             centre = (self.data.at(i)["gpsX"], self.data.at(i)["gpsY"])
             #centre[0] = self.scaleArrayToMinMax(0, 1000)
             pygame.draw.circle(screen, 'red', centre, 1)
 
     def drawGPS(self, screen):
+        "Draw GPS dot, shows on GPS update"
         centre = (1100, 500)
         if self.filter.gpsUpdated[self.i]:
             pygame.draw.circle(screen, 'red', centre, 50)
 
     def clipAndScale(self, start: int, end:int):
+        """Clip and scale x state history
+        --------
+        Paramters
+        start : int
+            Start index to clip x state history, allows for ignoring x = 0, y = 0
+        end : int
+            End index to clip x state history
+            Length from end of array
+        """
         # Clip
         self.stateHistory = np.array(self.tempStateHistory[start:-end])
         self.motorHistory = np.array(self.tempMotorHistory[start:-end])
         self.dtHistory = self.dtHistory[start:-end]
 
         # Scale
+        # TODO: Move this to a better place
+        # FIX: do on raw gps?
         self.scaleArrayToMinMax(self.stateHistory[:, :, 0], 1000, 600)
 
     def showStatic(self):
-        "Only shows static image"
+        "Only shows static path"
 
         self.screen.fill("lightblue")
         self.drawGPSPoints(self.screen)
@@ -157,7 +207,11 @@ class Simulation:
         pygame.display.flip()
 
     def show(self):
-        "Returns after animation"
+        """"Shows the animation and returns when finished
+        ----------
+        Can be interrupted/paused by quitting window
+        Will return to menu when interrupted/paused
+        """
 
         running = True
         self.i = 0

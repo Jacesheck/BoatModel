@@ -5,6 +5,8 @@ from bleak import BleakClient, BleakScanner
 import msvcrt
 import time
 import pickle
+import sys
+import select
 
 DEBUG_UUID     = "45c1eda2-4473-42a3-8143-dc79c30a64bf"
 CMD_UUID       = "05c6cc87-7888-4588-b794-92bdf9a29330"
@@ -17,10 +19,16 @@ command = ''
 
 class TelemetryRecorder:
     def __init__(self):
+        """Records telemetry using callback"""
         self.data = []
 
     def append(self, _, data: bytes):
-        "Append data with timestamp"
+        """Append data with timestamp
+        -------
+        Parameters
+        data : bytes
+            Raw telemetry data
+        """
         self.data.append([time.time(), data])
 
     def save(self):
@@ -33,6 +41,12 @@ class TelemetryRecorder:
 
 class Peripheral:
     def __init__(self, address: str):
+        """Used as connection object with arduino
+        Parameters
+        ----------
+        address : str
+            MAC address of arduino
+        """
         self.address = address
         self.telemetry = TelemetryRecorder()
 
@@ -52,37 +66,60 @@ class Peripheral:
         print('Device ready')
 
     def isConnected(self) -> bool:
-        "Returns whether it is still connected to the arduino"
+        "Return whether it is still connected to the arduino"
         return self.client.is_connected
 
     async def disconnect(self):
-        "Disconnect and stop all notify characteristics"
+        "Safely disconnect and stop all notify characteristics"
         await self.client.stop_notify(DEBUG_UUID);
         await self.client.stop_notify(TELEMETRY_UUID);
         await self.client.disconnect()
 
     async def writeCommand(self, data: str):
-        "Write a command to the client"
+        """Write a command to the client
+        -------
+        Parameters
+        data : str
+            Command to write to arduino
+        """
         await self.client.write_gatt_char(CMD_UUID, data.encode('utf-8'), True)
 
     async def writeCoords(self, data: bytes):
-        "Write coordinates to the client. Data must be 0 terminated"
+        """Write coordinates to the client. Data must be 0 terminated
+        -------
+        Parameters
+        data : bytes
+            Write data as bytes of doubles
+        """
         await self.client.write_gatt_char(COORDS_UUID, data, True)
 
 def nonBlockingInput() -> str:
+    """Allow for non-blocking input
+    -------
+    Return command : sr
+    """
     global command
-    if msvcrt.kbhit():
-        char = msvcrt.getch()
-        if char == b'\r':
-            copy = command
-            command = ''
-            return copy
-        else:
-            command += char.decode('utf-8')
-            print(command, end='\r')
+    if sys.platform == "win32":
+        if msvcrt.kbhit():
+            char = msvcrt.getch()
+            if char == b'\r':
+                copy = command
+                command = ''
+                return copy
+            else:
+                command += char.decode('utf-8')
+                print(command, end='\r')
+    else:
+        input_ready, _, _ = select.select([sys.stdin], [], [], 0)
+        if input_ready:
+            return sys.stdin.readline().rstrip()
+
     return ""
 
 def getCoordsFromFile() -> bytes:
+    """Retrieve coordinates from file and convert to doubles
+    ------
+    Return bytes of doubles : bytes"""
     with open('route.gpx', 'r') as f:
         text = f.read()
     found = re.findall(r'<rtept lat="(.+?)" lon="(.+?)"', text)
@@ -95,7 +132,13 @@ def getCoordsFromFile() -> bytes:
     # 0 terminated
     return ret + struct.pack('<d', 0)
 
-async def runDevice(address):
+async def runDeviceLoop(address: str):
+    """Run arduino with commands
+    ------
+    Parameters
+    address : str
+        MAC address of arduino
+    """
     running = True
     while running:
         peripheral = Peripheral(address)
@@ -103,7 +146,7 @@ async def runDevice(address):
 
         while peripheral.isConnected():
             command = nonBlockingInput()
-            if command == '':
+            if command == None:
                 await asyncio.sleep(0.01)
             elif command == 's' or command == 'send':
                 coords = getCoordsFromFile()
@@ -122,9 +165,10 @@ async def runDevice(address):
         print('Device disconnected')
 
 async def main():
+    "Find device with name boat and run device"
     devices = await BleakScanner.discover(1.)
     for d in devices:
         if d.name == 'Boat':
-            await runDevice(d.address)
+            await runDeviceLoop(d.address)
 
 asyncio.run(main())

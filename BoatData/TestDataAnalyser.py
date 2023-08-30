@@ -2,6 +2,8 @@ import unittest
 import numpy as np
 from DataAnalayser import Point, KalmanFilter, Simulation
 
+#OUTDATED TEST FILE
+
 class TestPoint(unittest.TestCase):
     def test_distanceTo(self):
         p1 = Point(0, 0)
@@ -63,14 +65,14 @@ class TestSimulation(unittest.TestCase):
     def test_scaleToMinMax(self):
         sim = Simulation()
         history = np.array([1, 2, 3, 4, 5])
-        sim.scaleToMinMax(history, (0, 100, 0, 100))
+        sim.scaleArrayToMinMax(history, (0, 100, 0, 100))
         self.assertEqual(history[0], 0)
         self.assertEqual(history[1], 25)
         self.assertEqual(history[4], 100)
 
         sim = Simulation()
         history = np.array([-1, -2, -3, -4, -5])
-        sim.scaleToMinMax(history, (0, 100, 0, 100))
+        sim.scaleArrayToMinMax(history, (0, 100, 0, 100))
         self.assertEqual(history[0], 100)
         self.assertEqual(history[1], 75)
         self.assertEqual(history[4], 0)

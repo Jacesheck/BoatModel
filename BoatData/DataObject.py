@@ -3,7 +3,13 @@ import struct
 IDLE_POWER: int = 1500
 
 class DataObject:
-    def __init__(self, pickled_data):
+    def __init__(self, pickled_data: list[tuple[float, bytearray]]):
+        """Create data object from serialised data
+        ------
+        Parameters
+        pickled_data : list[tuple[float, bytearray]]
+            List of timestamped bytearray telemetry
+        """
         # Create empty dict
         self.attributes = [
             'timestamp',
@@ -22,6 +28,7 @@ class DataObject:
             self.decoded_data[attr] = []
 
         for point in pickled_data:
+            # TODO: Make this shorter
             self.decoded_data['timestamp'].append(point[0])
             telemetry = point[1]
             i = 0
@@ -41,14 +48,22 @@ class DataObject:
             i += 4
 
             # Normalise motor powers
-            # TODO: Debug here
             self.decoded_data['power1'][-1] = -IDLE_POWER + self.decoded_data['power1'][-1]
             self.decoded_data['power2'][-1] = +IDLE_POWER - self.decoded_data['power2'][-1]
 
-    def __getitem__(self, item: str) -> list[float] | list[int]:
+    def __getitem__(self, item: str) -> list[float | int]:
+        """Allows dict-like referenceing
+        ------
+        Return list of data : list[float | int]"""
         return self.decoded_data[item]
 
     def at(self, idx: int) -> dict[str, float | int]:
+        """Get all data as dictionary at index
+        -------
+        Parameters
+        idx : int
+            Index to view raw telemetry
+        """
         return_dict = {}
         for attr in self.attributes:
             return_dict[attr] = self.decoded_data[attr][idx]
@@ -56,4 +71,8 @@ class DataObject:
 
 
     def __len__(self):
+        """Allows for length checking len(DataObject)
+        ------
+        Return length of telemetry : int
+        """
         return len(self.decoded_data['timestamp'])

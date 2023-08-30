@@ -2,7 +2,19 @@ import pygame
 import numpy as np
 import time
 
-def normalize(input1, input2, max):
+def normalize(input1: float, input2: float, max: float) -> tuple[float, float]:
+    """Sandbox normlise function
+    --------
+    Parameters
+    input1 : float
+        Motor 1 input
+    input2 : float
+        Motor 2 input
+    max : float
+        Max output power
+    -------
+    Return normalised input1 and inpu2 : tuple[float, float]
+    """
     total = abs(input1) + abs(input2)
     if total > max:
         input1 /= total
@@ -10,7 +22,17 @@ def normalize(input1, input2, max):
     return input1, input2
 
 class PID:
-    def __init__(self, p, i, d):
+    def __init__(self, p: float, i: float, d: float):
+        """Pid controller
+        -------
+        Parameters
+        p : float
+            Proportional value
+        i : float
+            Integral value
+        d : float
+            Derivative value
+        """
         self.p = p
         self.i = i
         self.d = d
@@ -18,17 +40,30 @@ class PID:
         self.accum = 0
         self.e_prev = 0
         self.goal = 0
-    def run(self, val, goal, new=False):
+
+    def run(self, observation: float, setpoint: float, new: bool=False) -> float:
+        """Run pid controller
+        ---------
+        Parameters
+        observation : float
+            Observation of value
+        setpoint : float
+            Setpoint goal
+        new : bool
+            Is new setpoint
+        --------
+        Return output value : float
+        """
         newTime = time.time()
         dt = newTime - self.time
         self.time = newTime
         if dt == 0:
             time.sleep(0.001)
-            return self.run(val, goal)
+            return self.run(observation, setpoint)
 
-        e = goal - val
+        e = setpoint - observation
         if new:
-            self.goal = goal
+            self.goal = setpoint
             self.accum = 0
             de = 0.
         else:
@@ -40,13 +75,31 @@ class PID:
         return self.p * e + self.d * de/dt + self.i * sum * dt
 
 class Waypoint:
-    def __init__(self, pos):
+    def __init__(self, pos : tuple[int, int]):
+        """Waypoint created with mouse press
+        -------
+        Parameters
+        pos : tupe[int, int]
+            XY values of mouse position
+        """
         self.pos = pos
+
     def draw(self, screen):
+        """Draw waypoint on screen"""
         pygame.draw.circle(screen, "red", self.pos, 3)
 
 class Boat:
-    def __init__(self, x, y, w):
+    def __init__(self, x: float, y: float, w: float):
+        """Boat object with integrated kalman filter
+        -------
+        Parameters
+        x : float
+            Start x position
+        y : float
+            Start y position
+        w : float
+            Width of boat (for kalman filter)
+        """
         self.boatImg = pygame.image.load('boat.png')
 
         self.w = w
@@ -77,18 +130,30 @@ class Boat:
         self.time = time.time()
 
         self.turnPid = PID(1, 0, 0.5)
-    def pos(self):
+
+    def pos(self) -> tuple[float, float]:
+        """Return position of boat as tuple
+        -------
+        Return position of boat : tuple[float, float]"""
+
         return (self.x[0,0], self.x[1,0])
-    """
-    Returns true if auto and false if manual
-    """
+
     def auto(self, waypoint: Waypoint) -> bool:
+        """ Runs the auto waypoint mode
+        --------
+        Parameters
+        waypoint : Waypoint
+            Current waypoing goal
+        ---------
+        Returns true if auto and false if manual : bool
+        """
         new = True
         if hasattr(self, "waypoint_prev"):
             if waypoint == self.waypoint_prev:
                 new = False
         self.waypoint_prev = waypoint
 
+        # Press "a" key
         if pygame.key.get_pressed()[pygame.K_a]:
             # Control rotation pid
             dx = waypoint.pos[0] - self.x[0,0]
@@ -115,6 +180,7 @@ class Boat:
         return False
 
     def getInput(self):
+        """Update self.u input matrix with user input"""
         if pygame.key.get_pressed()[pygame.K_u]:
             self.u[0, 0] = 1
         elif pygame.key.get_pressed()[pygame.K_j]:
@@ -130,6 +196,7 @@ class Boat:
             self.u[1, 0] = 0
 
     def predict(self):
+        "Predict cycle of kalman filter"
         newTime = time.time()
         dt = newTime - self.time
         self.time = newTime
@@ -154,7 +221,15 @@ class Boat:
         self.x = self.F@self.x + self.B@self.u
         # Stops boat angle getting above 360 degrees
         self.x[4,0] = self.x[4,0] % (2*np.pi)
-    def draw(self, screen, waypoint=None):
+    
+
+    def draw(self, screen, waypoint: Waypoint | None =None):
+        """Draw entire game
+        --------
+        Parameters
+        waypoint : Waypoint | None
+            Next active waypoint (default None)
+        """
         scaledBoat = pygame.transform.scale_by(self.boatImg, 10)
         scaledBoat = pygame.transform.rotate(scaledBoat, -90-self.x[4,0]*180/np.pi)
         width, height = scaledBoat.get_width(), scaledBoat.get_height()
@@ -166,12 +241,28 @@ class Boat:
         self.drawGoal(screen, waypoint)
 
     def drawGoal(self, screen, waypoint: Waypoint | None):
+        """Draw goal with line to waypoint
+        ---------
+        Parameters
+        waypoint : Waypoint | None
+            Active waypoint (default None)
+        """
         if waypoint != None:
             pygame.draw.circle(screen, "red", waypoint.pos, 22)
             pygame.draw.circle(screen, "white", waypoint.pos, 20)
             pygame.draw.line(screen, "red", waypoint.pos, self.pos())
 
-    def checkAtWaypoint(self, w: Waypoint, thresh=20):
+    def checkAtWaypoint(self, w: Waypoint, thresh=20) -> bool:
+        """Check if close enough to waypoint
+        --------
+        Parameters
+        w : Waypoint
+            Active waypoint
+        thresh : float
+            Threshold of waypoint
+        -------
+        Return reached waypoint : bool
+        """
         dx = w.pos[0] - self.x[0,0]
         dy = w.pos[1] - self.x[1,0]
         dist = np.sqrt(dx**2 + dy**2)

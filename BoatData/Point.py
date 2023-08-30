@@ -3,6 +3,14 @@ import numpy as np
 
 class Point:
     def __init__(self, x, y):
+        """Point object
+        Parameters
+        ---------
+        x : int
+            x coord
+        y : int
+            y coord
+        """
         self.x = x
         self.y = y
 
@@ -15,14 +23,30 @@ class Point:
         return f'Point({self.x}, {self.y})'
 
 
-    def distanceTo(self, pt: Point):
+    def distanceTo(self, pt: Point) -> float:
+        """Get absolute distance to point
+        ---------
+        Parameters
+        pt : Point
+            Point to find distance between
+        -------
+        Return distance (m) : float
+        """
         dx = pt.x - self.x
         dy = pt.y - self.y
         return np.sqrt(dx**2 + dy**2)
     
 
     def courseTo(self, pt: Point) -> float:
-        'Returns angle in degrees [0, 360)'
+        """Return distance in degrees to point
+        -------
+        Parameters
+        pt : Point
+            Point to find heading to
+        --------
+        Return heading to point (deg [0, 360)): float
+        """
+
         dx = pt.x - self.x
         dy = pt.y - self.y
         angle = np.angle(complex(dy, dx), deg=True)

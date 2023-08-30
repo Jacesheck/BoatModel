@@ -22,6 +22,7 @@ from Point import Point
 
 class KalmanFilter():
     def __init__(self):
+        """6 parameter kalman filter for boat with drift"""
         self.reset()
 
         self.b1         = 2. # drag on water
@@ -32,6 +33,8 @@ class KalmanFilter():
         self.motorTorque = -50 
 
     def reset(self):
+        """Set all states to initial defaults"""
+
         self.w = 0.8 # Width of boat
         "State space"
         self.x = np.array([[0.], # x
@@ -70,6 +73,7 @@ class KalmanFilter():
 
 
     def showVars(self):
+        """Print variables and current values to screen"""
         print(f"""
         b1 (water drag)     : {self.b1}
         b2 (rotational drag): {self.b2}
@@ -81,9 +85,13 @@ class KalmanFilter():
 
 
     def predict(self, u: np.ndarray, dt: float):
-        """
-        Kalman filter predit
-        u = input (motor) matrix
+        """ Kalman filter predit cycle
+        Parameters
+        --------
+        u : np.ndarry
+            Input (motor) matrix
+        dt : float
+            Delta time
         """
         theta_r  = np.deg2rad(self.x[4,0])
         delta_th = 1-dt*self.b2
@@ -108,12 +116,28 @@ class KalmanFilter():
 
 
     def wrap180(self, angle: float) -> float:
+        """Wrap angle to 180
+        -----
+        Parameters
+        angle : float
+            Input angle (deg [0, 360))
+        ------
+        Return Output angle (deg (-180, 180]) : float
+        """
         if angle > 180:
             angle -= 360
         return angle
 
 
     def wrap360(self, angle: float) -> float:
+        """Wrap angle to 360
+        -------
+        Parameters
+        angle : float
+            Input angle (deg)
+        ------
+        Return Output angle (deg [0, 360))
+        """
         if angle < 0:
             angle += 360
         elif angle >= 360:
@@ -122,11 +146,17 @@ class KalmanFilter():
 
 
     def wrapTheta(self):
+        """Wrap heading angle"""
         self.x[4, 0] = self.wrap360(self.x[4, 0]) # Wrap theta
 
 
     def update(self, data: dict):
-        """Dict containing gpsX, gpsY, """
+        """Kalman filter update cycle
+        --------
+        Parameters
+        data : dict
+            Dict containing gpsX, gpsY
+        """
         gpsLoc = Point(data['gpsX'], data['gpsY'])
         if not hasattr(self, 'lastGPS') or self.lastGPS == gpsLoc:
             self.update_nogps(data)
@@ -139,6 +169,12 @@ class KalmanFilter():
 
 
     def update_gps(self, data: dict):
+        """Kalman filter update with gps data (and gyro)
+        --------
+        Parameters
+        data : dict
+            Dict containing updated gps data
+        """
         z = np.array([[data['gpsX']],
                       [data['gpsY']],
                       [data['course_gps']],
@@ -163,6 +199,12 @@ class KalmanFilter():
 
 
     def update_nogps(self, data: dict):
+        """Kalman filter update without gps data (just gyro)
+        --------
+        Parameters
+        data : dict
+            Dict containing gyro data
+        """
         rz = data['rz']
         H  = np.array([[0., 0., 0., 0., 0., 1.]])
         R  = np.array([[self.gyroNoise]]) # Tune for no gps
