@@ -1,6 +1,7 @@
 import sys
 import select
-import msvcrt
+if sys.platform == "win32":
+    import msvcrt
 
 class Command():
     def __init__(self):
