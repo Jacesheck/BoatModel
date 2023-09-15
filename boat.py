@@ -125,8 +125,10 @@ class Boat:
                            [1., -1.]])
 
         self.u = np.array([[0., 0.]]).transpose()
-        self.b1 = 1
-        self.b2 = 1
+        self.b1 = 2
+        self.b2 = 3
+        self.motorForce = 0.001
+
         self.time = time.time()
 
         self.turnPid = PID(1, 0, 0.5)
@@ -201,7 +203,7 @@ class Boat:
         dt = newTime - self.time
         self.time = newTime
 
-        theta = self.x[4,0]
+        theta_r = self.x[4,0] * np.pi / 180.
         delta_th = 1-dt*self.b2
 
         self.F = np.array([[1., 0., dt, 0., 0., 0.],
@@ -213,29 +215,27 @@ class Boat:
 
         self.B = np.array([[0, 0],
                            [0, 0],
-                           [300*dt*np.cos(theta), 300*dt*np.cos(theta)],
-                           [300*dt*np.sin(theta), 300*dt*np.sin(theta)],
+                           [400*self.motorForce*dt*np.cos(theta_r), 400*self.motorForce*dt*np.cos(theta_r)],
+                           [400*self.motorForce*dt*np.sin(theta_r), 400*self.motorForce*dt*np.sin(theta_r)],
                            [0, 0],
-                           [0.5*dt*self.w/2, -0.5*dt*self.w/2]])
+                           [400*self.motorForce*dt*self.w/2, -400*self.motorForce*dt*self.w/2]])
 
+        print(f"{self.x = }")
         self.x = self.F@self.x + self.B@self.u
         # Stops boat angle getting above 360 degrees
         self.x[4,0] = self.x[4,0] % (2*np.pi)
     
 
-    def draw(self, screen, waypoint: Waypoint | None =None):
-        """Draw entire game
+    def draw(self, screen, waypoint: Waypoint | None = None):
+        """Draw boat
         --------
         Parameters
         waypoint : Waypoint | None
             Next active waypoint (default None)
         """
-        scaledBoat = pygame.transform.scale_by(self.boatImg, 10)
+        scaledBoat = pygame.transform.scale_by(self.boatImg, 1)
         scaledBoat = pygame.transform.rotate(scaledBoat, -90-self.x[4,0]*180/np.pi)
         width, height = scaledBoat.get_width(), scaledBoat.get_height()
-        fullBoat = self.boatImg.copy()
-        fullBoat = pygame.transform.scale_by(self.boatImg, 10)
-        fullBoat = pygame.transform.rotate(fullBoat, -90-self.x[4,0]*180/np.pi)
         screen.blit(scaledBoat, (self.x[0,0] - width/2, self.x[1,0] - height/2))
 
         self.drawGoal(screen, waypoint)
@@ -275,7 +275,7 @@ if __name__ == "__main__":
     clock = pygame.time.Clock()
     running = True
 
-    boat = Boat(300, 300, 20)
+    boat = Boat(300, 300, 0.8)
     waypoints = []
     while running:
 
@@ -295,6 +295,7 @@ if __name__ == "__main__":
             boat.getInput()
 
         boat.predict()
+        # Draw waypoints
         if len(waypoints):
             boat.draw(screen, waypoints[0])
         else:

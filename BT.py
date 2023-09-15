@@ -35,7 +35,7 @@ class TelemetryRecorder:
         print('Saving file of length', len(self.data))
         with open(TELEMETRY_FILE,'wb') as f:
             pickle.dump(self.data, f)
-            # TODO: Test this
+            # TODO: Test this?
         self.data = []
 
 class Peripheral:
@@ -61,7 +61,7 @@ class Peripheral:
         await self.client.start_notify(DEBUG_UUID, self.debug_callback)
         await self.client.start_notify(TELEMETRY_UUID, self.telemetry.append)
 
-        print('Device ready')
+        print('Notify is ready')
 
     def isConnected(self) -> bool:
         "Return whether it is still connected to the arduino"
