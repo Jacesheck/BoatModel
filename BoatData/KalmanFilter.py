@@ -91,17 +91,15 @@ class KalmanFilter():
         dt : float
             Delta time
         """
-        theta_r  = np.deg2rad(self.x[4,0]) # Heading
-        delta_th = 1-dt*self.b2
-
         F = np.array([[1., 0., dt, 0., 0., 0.],
                       [0., 1., 0., dt, 0., 0.],
-                      [0., 0., np.max([0, 1.-dt*self.b1]), 0., 0., 0.],
-                      [0., 0., 0., np.max([0, 1.-dt*self.b1]), 0., 0.],
+                      [0., 0., 1.-dt*self.b1, 0., 0., 0.],
+                      [0., 0., 0., 1.-dt*self.b1, 0., 0.],
                       [0., 0., 0., 0., 1., dt],
-                      [0., 0., 0., 0., 0., delta_th]], dtype=np.float64)
+                      [0., 0., 0., 0., 0., 1-dt*self.b2]], dtype=np.float64)
         #F = np.eye(6)
 
+        theta_r  = np.deg2rad(self.x[4,0]) # Heading
         self.B = np.array([[0., 0.],
                            [0., 0.],
                            [self.motorForce*dt*np.sin(theta_r), self.motorForce*dt*np.sin(theta_r)],

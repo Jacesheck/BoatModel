@@ -169,6 +169,7 @@ async def runDeviceLoop(address: str):
                     print('Disconnecting...')
                     await peripheral.disconnect()
                     running = False
+                    g_peripheral_connected = False
                     break
                 elif c == 't' or c == 'telemetry':
                     peripheral.telemetry.save()
@@ -176,7 +177,6 @@ async def runDeviceLoop(address: str):
                 else:
                     await peripheral.writeCommand(c)
             # TODO: finish runDevice
-    g_peripheral_connected = False
 
 class TextField:
     def __init__(self, x, y):
