@@ -33,7 +33,7 @@ class DataObject:
             telemetry = point[1]
 
             decoded_data = struct.unpack('<ddddllf', telemetry[:44])
-            self.decoded_data['gpsX'].append(decoded_data[0])
+            self.decoded_data['gpsX'].append(-decoded_data[0])
             self.decoded_data['gpsY'].append(decoded_data[1])
             self.decoded_data['gpsLat'].append(decoded_data[2])
             self.decoded_data['gpsLng'].append(decoded_data[3])

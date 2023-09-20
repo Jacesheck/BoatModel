@@ -127,7 +127,7 @@ class Boat:
         self.u = np.array([[0., 0.]]).transpose()
         self.b1 = 2
         self.b2 = 3
-        self.motorForce = 0.001
+        self.motorForce = 0.4
 
         self.time = time.time()
 
@@ -204,14 +204,13 @@ class Boat:
         self.time = newTime
 
         theta_r = self.x[4,0] * np.pi / 180.
-        delta_th = 1-dt*self.b2
 
         self.F = np.array([[1., 0., dt, 0., 0., 0.],
                            [0., 1., 0., dt, 0., 0.],
-                           [0., 0., np.max([0, 1.-dt*self.b1]), 0., 0., 0.],
-                           [0., 0., 0., np.max([0, 1.-dt*self.b1]), 0., 0.],
+                           [0., 0., 1.-dt*self.b1, 0., 0., 0.],
+                           [0., 0., 0., 1.-dt*self.b1, 0., 0.],
                            [0., 0., 0., 0., 1., dt],
-                           [0., 0., 0., 0., 0., delta_th]])
+                           [0., 0., 0., 0., 0., 1-dt*self.b2]])
 
         self.B = np.array([[0, 0],
                            [0, 0],

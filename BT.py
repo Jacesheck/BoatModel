@@ -6,14 +6,17 @@ from bleak import BleakClient, BleakScanner
 import time
 import pickle
 import pygame
+import numpy as np
 
 DEBUG_UUID     = "45c1eda2-4473-42a3-8143-dc79c30a64bf"
 STATUS_UUID    = "6f04c0a3-f201-4091-a13d-5ecafc3dc54b"
 CMD_UUID       = "05c6cc87-7888-4588-b794-92bdf9a29330"
 COORDS_UUID    = "3794c841-1b53-4029-aebb-12319386fd28"
 TELEMETRY_UUID = "ccc03716-4f66-4cb8-b6fd-9b2278587add"
+KALMAN_UUID    = "933963ae-cc8e-4704-bd3c-dc53721ba956"
 
-TELEMETRY_FILE = "telemetry/" + time.asctime().replace(':','.').replace(' ','')
+TELEMETRY_FILE = "telemetry/telem" + time.asctime().replace(':','.').replace(' ','_')
+KALMAN_FILE    = "telemetry/kalman" + time.asctime().replace(':','.').replace(' ','_')
 
 LOOP_PERIOD = 0.01 # s
 
@@ -23,6 +26,7 @@ BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
 GREEN = (0, 255, 0)
 RED   = (255, 0, 0)
+GRAY  = (180, 180, 180)
 
 g_debug = ""
 g_peripheral_connected = False
@@ -33,29 +37,63 @@ g_gps_avail  : bool = False
 g_rc_avail   : bool = False
 g_initialised: bool = False
 
+class KalmanState:
+    def update(self, vals):
+        self.x = vals[0]
+        self.y = vals[1]
+        self.vx = vals[2]
+        self.vy = vals[3]
+        self.heading = vals[4]
+        self.dheading = vals[5]
+
+    def isReady(self) -> bool:
+        return hasattr(self, 'x')
+
+class MotorState:
+    def update(self, vals):
+        self.motorLeft = vals[4]
+        self.motorRight = vals[5]
+
+    def isReady(self) -> bool:
+        return hasattr(self, 'motorLeft')
+
+g_kalmanState = KalmanState()
+g_motorState = MotorState()
+
 g_command : str | None = None
 
-class TelemetryRecorder:
+class DataRecorder:
     def __init__(self):
         """Records telemetry using callback"""
-        self.data = []
+        self.telemetry = []
+        self.kalman = []
 
-    def append(self, _, data: bytes):
-        """Append data with timestamp
+    def appendTelem(self, data: list[float]):
+        """Append telemetry with timestamp
         -------
         Parameters
         data : bytes
             Raw telemetry data
         """
-        self.data.append([time.time(), data])
+        self.telemetry.append([time.time(), data])
+
+    def appendKalman(self, data: list[float]):
+        """Append kalman filter data with timestamp
+        -------
+        Parameters
+        data : bytes
+            Raw kalman data
+        """
+        self.kalman.append([time.time, data])
 
     def save(self):
         "Save received telemetry to file"
-        print('Saving file of length', len(self.data))
+        print('Saving file of length', len(self.telemetry))
         with open(TELEMETRY_FILE,'wb') as f:
-            pickle.dump(self.data, f)
-            # TODO: Test this?
-        self.data = []
+            pickle.dump(self.telemetry, f)
+        with open(KALMAN_FILE,'wb') as f:
+            pickle.dump(self.telemetry, f)
+        self.telemetry = []
 
 class Peripheral:
     def __init__(self, address: str):
@@ -66,7 +104,7 @@ class Peripheral:
             MAC address of arduino
         """
         self.address = address
-        self.telemetry = TelemetryRecorder()
+        self.dataRecorder = DataRecorder()
 
     def debug_callback(self, _, val):
         "Callback used for debug messages from arduino"
@@ -84,13 +122,26 @@ class Peripheral:
         g_rc_avail = bool(status & g_RC_AVAIL)
         g_initialised = bool(status & g_INIT)
 
+    def kalman_callback(self, _, val):
+        global g_kalmanState
+        state: list[float] = list(struct.unpack('<ffffff', val))
+        self.dataRecorder.appendKalman(state)
+        g_kalmanState.update(state)
+
+    def telem_callback(self, _, val):
+        global g_motorState
+        telem: list[float] = list(struct.unpack('<ddddfff', val))
+        self.dataRecorder.appendTelem(telem)
+        g_motorState.update(telem)
+
     async def connect(self):
         "Connect to bluetooth client and setup notify characteristics"
         self.client = BleakClient(self.address)
         await self.client.connect()
         await self.client.start_notify(DEBUG_UUID, self.debug_callback)
         await self.client.start_notify(STATUS_UUID, self.status_callback)
-        await self.client.start_notify(TELEMETRY_UUID, self.telemetry.append)
+        await self.client.start_notify(TELEMETRY_UUID, self.telem_callback)
+        await self.client.start_notify(KALMAN_UUID, self.kalman_callback)
 
         print('Notify is ready')
 
@@ -103,6 +154,7 @@ class Peripheral:
         await self.client.stop_notify(DEBUG_UUID);
         await self.client.stop_notify(STATUS_UUID);
         await self.client.stop_notify(TELEMETRY_UUID);
+        await self.client.stop_notify(KALMAN_UUID);
         await self.client.disconnect()
 
     async def writeCommand(self, data: str):
@@ -172,17 +224,44 @@ async def runDeviceLoop(address: str):
                     g_peripheral_connected = False
                     break
                 elif c == 't' or c == 'telemetry':
-                    peripheral.telemetry.save()
+                    peripheral.dataRecorder.save()
                     print('Telemetry saved')
                 else:
                     await peripheral.writeCommand(c)
             # TODO: finish runDevice
 
+class Radial:
+    def __init__(self, x, y, width, height, title):
+        self.width = width
+        self.height = height
+        self.title = FONT.render(title, True, BLACK, WHITE)
+        self.title_rect = self.title.get_rect()
+        self.title_rect.topleft = (x, y)
+        self.x = x
+        self.y = y + 25 # For text
+        self.back_rect = pygame.Rect(self.x, self.y, self.width, self.height)
+        self.center_x = self.x + (self.width / 2)
+        self.center_y = self.y + (self.height / 2)
+
+    def blit(self, screen, x: float, y: float):
+        """Draw Radial to screen
+        --------
+        Parameters
+        x : float
+            x component of radial display [-1, 1]
+        y : float
+            y component of radial display [-1, 1]
+        """
+        screen.blit(self.title, self.title_rect)
+        pygame.draw.rect(screen, GRAY, self.back_rect)
+        mover_center = (self.center_x + (x * self.width/2),
+                        self.center_y - (y * self.height/2))
+        pygame.draw.circle(screen, BLACK, mover_center, 5)
+        pygame.draw.line(screen, BLACK,
+                (self.center_x,  self.center_y), mover_center, 2)
+
 class TextField:
     def __init__(self, x, y):
-        self.black = (0, 0, 0)
-        self.gray = (180, 180, 180)
-        self.white = (255, 255, 255)
         self.text_field_rect = pygame.Rect(x, y, 400, 3*26)
         self.x = x
         self.y = y
@@ -190,9 +269,9 @@ class TextField:
     def blit(self, multi_line_text, screen):
         split: list[str] = multi_line_text.split("\n")
         y = self.y 
-        pygame.draw.rect(screen, self.gray, self.text_field_rect)
+        pygame.draw.rect(screen, GRAY, self.text_field_rect)
         for i in range(max(-len(split), -3), 0):
-            debug_text = FONT.render(split[i], True, self.black, self.gray)
+            debug_text = FONT.render(split[i], True, BLACK, GRAY)
             debug_rect = debug_text.get_rect()
             debug_rect.topleft = (self.x, y)
             y+= 26
@@ -227,6 +306,10 @@ async def runDisplay():
     rc_indicator = Indicator(40, 160, "RC available")
     init_indicator = Indicator(40, 190, "Initialised")
 
+    velocity = Radial(40, 220, 200, 200, "Velocity")
+    heading = Radial(250, 220, 200, 200, "Heading")
+    motor  = Radial(40, 460, 200, 200, "Motors")
+
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -242,6 +325,8 @@ async def runDisplay():
                     g_command = 'l'
                 elif event.key == pygame.K_RIGHT:
                     g_command = 'r'
+                elif event.key == pygame.K_h:
+                    g_command = 'h'
 
             if event.type == pygame.MOUSEBUTTONUP:
                 pass
@@ -252,6 +337,16 @@ async def runDisplay():
         gps_indicator.blit(screen, g_gps_avail)
         rc_indicator.blit(screen, g_rc_avail)
         init_indicator.blit(screen, g_initialised)
+
+        # Radials
+        if g_kalmanState.isReady():
+            velocity.blit(screen, g_kalmanState.vx/10., g_kalmanState.vy/10)
+            heading.blit(screen, 0.5*np.sin(np.deg2rad(g_kalmanState.heading)),
+                         0.5*np.cos(np.deg2rad(g_kalmanState.heading)))
+        if g_motorState.isReady():
+            l = g_motorState.motorLeft
+            r = g_motorState.motorRight
+            motor.blit(screen, l - r, l + r)
 
         # Debug stream
         debug_text.blit(g_debug, screen)
