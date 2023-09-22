@@ -97,7 +97,7 @@ class Simulation:
         assert(len(self.dtHistory) == len(self.tempStateHistory))
         assert(len(self.tempMotorHistory) == len(self.tempStateHistory))
 
-        u = np.array([[data['power1'], data['power2']]]).T
+        u = np.array([[data['powerLeft'], data['powerRight']]]).T
         self.filter.predict(u, dt)
         self.filter.update(data)
         self.tempStateHistory.append(self.filter.x)
@@ -123,6 +123,9 @@ class Simulation:
 
         x_old_range = x_max - x_min
         y_old_range = y_max - y_min
+
+        print(f"gps X range : {x_old_range}")
+        print(f"gps Y range : {y_old_range}")
 
         x_scale_factor = width / x_old_range
         y_scale_factor = height / y_old_range

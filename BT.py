@@ -1,10 +1,11 @@
 import asyncio
+import os
 import re
 import struct
 from bleak import BleakClient, BleakScanner
 #from Command import Command
 import time
-import pickle
+import json
 import pygame
 import numpy as np
 
@@ -15,8 +16,8 @@ COORDS_UUID    = "3794c841-1b53-4029-aebb-12319386fd28"
 TELEMETRY_UUID = "ccc03716-4f66-4cb8-b6fd-9b2278587add"
 KALMAN_UUID    = "933963ae-cc8e-4704-bd3c-dc53721ba956"
 
-TELEMETRY_FILE = "telemetry/telem" + time.asctime().replace(':','.').replace(' ','_')
-KALMAN_FILE    = "telemetry/kalman" + time.asctime().replace(':','.').replace(' ','_')
+TELEMETRY_FILE = "BoatData/telemetry/telem" + time.asctime().replace(':','.').replace(' ','_') + ".json"
+KALMAN_FILE    = "BoatData/telemetry/kalman" + time.asctime().replace(':','.').replace(' ','_') + ".json"
 
 LOOP_PERIOD = 0.01 # s
 
@@ -33,9 +34,12 @@ g_peripheral_connected = False
 g_GPS_AVAIL  : int = 1 << 0
 g_RC_AVAIL   : int = 1 << 1
 g_INIT       : int = 1 << 2
+g_RC_MODE    : int = 1 << 3
+
 g_gps_avail  : bool = False
 g_rc_avail   : bool = False
 g_initialised: bool = False
+g_rc_mode    : bool = True
 
 class KalmanState:
     def update(self, vals):
@@ -65,35 +69,37 @@ g_command : str | None = None
 class DataRecorder:
     def __init__(self):
         """Records telemetry using callback"""
-        self.telemetry = []
-        self.kalman = []
-
-    def appendTelem(self, data: list[float]):
+        self.telemetry: list[dict[str, float]] = []
+        self.kalman: list[dict[str, float]] = []
+    def appendTelem(self, named_data: dict[str, float]):
         """Append telemetry with timestamp
         -------
         Parameters
-        data : bytes
-            Raw telemetry data
+        named_data : dist[str, float]
+            Telemetry data as dict
         """
-        self.telemetry.append([time.time(), data])
+        self.telemetry.append(named_data)
 
-    def appendKalman(self, data: list[float]):
+    def appendKalman(self, named_state: dict[str, float]):
         """Append kalman filter data with timestamp
         -------
         Parameters
-        data : bytes
-            Raw kalman data
+        named_state : dict[str, float]
+            Kalman values in dict form
         """
-        self.kalman.append([time.time, data])
+        self.kalman.append(named_state)
 
     def save(self):
         "Save received telemetry to file"
         print('Saving file of length', len(self.telemetry))
-        with open(TELEMETRY_FILE,'wb') as f:
-            pickle.dump(self.telemetry, f)
-        with open(KALMAN_FILE,'wb') as f:
-            pickle.dump(self.telemetry, f)
+        if not os.path.exists('BoatData/telemetry'):
+            os.makedirs("BoatData/telemetry")
+        with open(TELEMETRY_FILE,'w') as f:
+            json.dump(self.telemetry, f)
+        with open(KALMAN_FILE,'w') as f:
+            json.dump(self.kalman, f)
         self.telemetry = []
+        self.kalman = []
 
 class Peripheral:
     def __init__(self, address: str):
@@ -117,24 +123,47 @@ class Peripheral:
         print(f"Status received {status}")
         global g_gps_avail
         global g_rc_avail
+        global g_rc_mode
         global g_initialised
         g_gps_avail = bool(status & g_GPS_AVAIL)
         g_rc_avail = bool(status & g_RC_AVAIL)
+        g_rc_mode  = bool(status & g_RC_MODE)
         g_initialised = bool(status & g_INIT)
 
     def kalman_callback(self, _, val):
         global g_kalmanState
         state: list[float] = list(struct.unpack('<ffffff', val))
-        self.dataRecorder.appendKalman(state)
+        named_state = {
+            "timestamp": time.time(),
+            "x": state[0],
+            "y": state[1],
+            "dx" : state[2],
+            "dy" : state[3],
+            "heading" : state[4],
+            "d_heading" : state[5]
+        }
+        self.dataRecorder.appendKalman(named_state)
         g_kalmanState.update(state)
 
     def telem_callback(self, _, val):
         global g_motorState
         telem: list[float] = list(struct.unpack('<ddddfff', val))
-        self.dataRecorder.appendTelem(telem)
+        named_telem = {
+            "timestamp": time.time(),
+            "gpsX" : telem[0],
+            "gpsY" : telem[1],
+            "lat" : telem[2],
+            "lng" : telem[3],
+            "powerLeft" : telem[4],
+            "powerRight" : telem[5],
+            "rz" : telem[6]
+        }
+        self.dataRecorder.appendTelem(named_telem)
         g_motorState.update(telem)
 
     async def connect(self):
+        global g_status
+
         "Connect to bluetooth client and setup notify characteristics"
         self.client = BleakClient(self.address)
         await self.client.connect()
@@ -142,6 +171,7 @@ class Peripheral:
         await self.client.start_notify(STATUS_UUID, self.status_callback)
         await self.client.start_notify(TELEMETRY_UUID, self.telem_callback)
         await self.client.start_notify(KALMAN_UUID, self.kalman_callback)
+        g_status = await self.client.read_gatt_char(STATUS_UUID)
 
         print('Notify is ready')
 
@@ -304,11 +334,12 @@ async def runDisplay():
     peripheral_indicator = Indicator(40, 100, "Arduino connected")
     gps_indicator = Indicator(40, 130, "GPS available")
     rc_indicator = Indicator(40, 160, "RC available")
-    init_indicator = Indicator(40, 190, "Initialised")
+    rc_mode = Indicator(40, 190, "RC mode")
+    init_indicator = Indicator(40, 220, "Initialised")
 
-    velocity = Radial(40, 220, 200, 200, "Velocity")
-    heading = Radial(250, 220, 200, 200, "Heading")
-    motor  = Radial(40, 460, 200, 200, "Motors")
+    velocity = Radial(40, 250, 200, 200, "Velocity")
+    heading = Radial(250, 250, 200, 200, "Heading")
+    motor  = Radial(40, 490, 200, 200, "Motors")
 
     while running:
         for event in pygame.event.get():
@@ -327,6 +358,14 @@ async def runDisplay():
                     g_command = 'r'
                 elif event.key == pygame.K_h:
                     g_command = 'h'
+                elif event.key == pygame.K_t:
+                    g_command = 't'
+                elif event.key == pygame.K_s:
+                    g_command = 's'
+                elif event.key == pygame.K_k:
+                    g_command = 'k'
+                elif event.key == pygame.K_m:
+                    g_command = 'm'
 
             if event.type == pygame.MOUSEBUTTONUP:
                 pass
@@ -336,6 +375,7 @@ async def runDisplay():
         peripheral_indicator.blit(screen, g_peripheral_connected)
         gps_indicator.blit(screen, g_gps_avail)
         rc_indicator.blit(screen, g_rc_avail)
+        rc_mode.blit(screen, g_rc_mode)
         init_indicator.blit(screen, g_initialised)
 
         # Radials

@@ -1,5 +1,5 @@
-import pickle
 import matplotlib.pyplot as plt
+import json
 import sys
 import numpy as np
 
@@ -14,9 +14,8 @@ def main():
         args.append("Telemetry/Path_FriMay2612.48.312023")
 
     filename = args[1]
-    with open(filename, 'rb') as f:
-        text = f.read()
-    data = pickle.loads(text)
+    with open(filename, 'r') as f:
+        data = json.load(f)
     decoded_data = DataObject(data)
 
     #timestamps = decoded_data['timestamp']
