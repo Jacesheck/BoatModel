@@ -27,7 +27,7 @@ def constrain(val: float, max: float) -> float:
         return val
 
 class Boat:
-    def __init__(self, x: float, y: float, w: float):
+    def __init__(self, x: float, y: float, theta: float):
         """Boat object with integrated kalman filter
         -------
         Parameters
@@ -38,12 +38,11 @@ class Boat:
         w : float
             Width of boat (for kalman filter)
         """
-        self.w = w
         self.x = np.array([[x], # x
                            [y], # y
                            [0.], # v_x
                            [0.], # v_y
-                           [315.], # theta
+                           [theta], # theta
                            [0.]])# theta_dot
 
         self.F = np.array([[1, 0, 0, 0, 0, 0],
@@ -62,8 +61,9 @@ class Boat:
 
         self.u = np.array([[0., 0.]]).transpose()
         self.b1 = 2
-        self.b2 = 3
-        self.motorForce = 0.001
+        self.b2 = 1
+        self.motorForce = 0.4
+        self.motorTorque = 30
 
     def predict(self, left: float, right: float, dt: float):
         "Predict cycle of kalman filter"
@@ -74,8 +74,8 @@ class Boat:
 
         self.F = np.array([[1., 0., dt, 0., 0., 0.],
                            [0., 1., 0., dt, 0., 0.],
-                           [0., 0., np.max([0, 1.-dt*self.b1]), 0., 0., 0.],
-                           [0., 0., 0., np.max([0, 1.-dt*self.b1]), 0., 0.],
+                           [0., 0., 1.-dt*self.b1, 0., 0., 0.],
+                           [0., 0., 0., 1.-dt*self.b1, 0., 0.],
                            [0., 0., 0., 0., 1., dt],
                            [0., 0., 0., 0., 0., delta_th]])
 
@@ -84,7 +84,7 @@ class Boat:
                            [self.motorForce*dt*np.cos(theta_r), self.motorForce*dt*np.cos(theta_r)],
                            [self.motorForce*dt*np.sin(theta_r), self.motorForce*dt*np.sin(theta_r)],
                            [0, 0],
-                           [self.motorForce*dt*self.w/2, -self.motorForce*dt*self.w/2]])
+                           [self.motorTorque*dt, -self.motorTorque*dt]])
 
         self.x = self.F@self.x + self.B@self.u
         self.x[4,0] = self.x[4,0]
@@ -136,17 +136,19 @@ class PID:
 
         return self.p * e + self.d * de/dt + self.i * sum * dt
 
-if __name__ == "__main__":
-    boat = Boat(0, 0, 0.8)
+def main():
+    plt.ion()
+    p, d = (float(num) for num in input("PID: ").split(" "))
+    boat = Boat(0, 0, 0)
     dt = 0.1
-    time = np.arange(0, 50, 0.1)
-    pid  = PID(1000., 0., 0.)
+    time = np.arange(0, 10, 0.1)
+    pid  = PID(p, 0, d)
     angles = []
     outputs = []
-    for t in time:
+    for _ in time:
         theta = boat.x[4, 0]
-        val = pid.run(90, theta, dt)
-        val = constrain(val, 400)
+        val = pid.run(-90, theta, dt)
+        val = constrain(val, 1)
         boat.predict(val, -val, dt)
         outputs.append(val)
         angles.append(theta)
@@ -158,4 +160,8 @@ if __name__ == "__main__":
     plt.figure(1)
     plt.title('Output')
     plt.plot(time, outputs)
-    plt.show()
+    plt.pause(0.1)
+
+if __name__ == "__main__":
+    while True:
+        main()
