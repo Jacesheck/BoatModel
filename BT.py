@@ -329,6 +329,7 @@ async def runDisplay():
      
     # Debug text
     debug_text = TextField(40, 10)
+    g_debug = "Press any key to start motor init\n"
 
     # Indicators
     peripheral_indicator = Indicator(40, 100, "Arduino connected")
