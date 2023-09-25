@@ -380,7 +380,7 @@ async def runDisplay():
 
         # Radials
         if g_kalmanState.isReady():
-            velocity.blit(screen, g_kalmanState.vx/10., g_kalmanState.vy/10)
+            velocity.blit(screen, g_kalmanState.vx, g_kalmanState.vy)
             heading.blit(screen, 0.5*np.sin(np.deg2rad(g_kalmanState.heading)),
                          0.5*np.cos(np.deg2rad(g_kalmanState.heading)))
         if g_motorState.isReady():
