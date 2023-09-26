@@ -1,6 +1,6 @@
 import numpy as np
-from PID import PID
-from Point import Point
+from libs.PID import PID
+from libs.Point import Point
 
 
 # Notes
@@ -29,7 +29,8 @@ class KalmanFilter():
         self.b2         = 3. # Rotational drag
         self.gpsNoise   = 2.
         self.gyroNoise  = 0.1
-        self.motorForce = 0.001
+        self.motorForce = 0.4
+        self.motorTorque = 50
 
     def reset(self):
         """Set all states to initial defaults"""
@@ -105,7 +106,7 @@ class KalmanFilter():
                            [self.motorForce*dt*np.sin(theta_r), self.motorForce*dt*np.sin(theta_r)],
                            [self.motorForce*dt*np.cos(theta_r), self.motorForce*dt*np.cos(theta_r)],
                            [0., 0.],
-                           [self.motorForce*0.5*dt*self.w/2., -self.motorForce*0.5*dt*self.w/2.]])
+                           [self.motorTorque*dt, -self.motorTorque*dt]])
 
         self.x = F@self.x + self.B@u
         self.P = F@self.P@F.T + self.Q

@@ -1,5 +1,5 @@
-from KalmanFilter import KalmanFilter
-from DataObject import DataObject
+from libs.KalmanFilter import KalmanFilter
+from libs.DataObject import DataObject
 
 import numpy as np
 import time
@@ -134,7 +134,7 @@ class Simulation:
         self.scale_m = np.array([[scale_factor, 0],
                                  [0, -scale_factor]])
         self.scale_c = np.array([[DISPLAY_SPACING],
-                                 [height - DISPLAY_SPACING]])
+                                 [height + DISPLAY_SPACING]])
         self.gps_min = np.array([[x_min],
                                  [y_min]])
 
@@ -160,10 +160,10 @@ class Simulation:
 
     def drawMotors(self, screen):
         "Draw Motor display bars"
-        motor1 = self.motorHistory[self.i, 0, 0]/2
-        motor2 = self.motorHistory[self.i, 1, 0]/2
-        left_motor   = pygame.Rect(1000, min(300-motor1, 300), 20, abs(motor1))
-        right_motor  = pygame.Rect(1080, min(300-motor2, 300), 20, abs(motor2))
+        motor1 = self.motorHistory[self.i, 0, 0]*200
+        motor2 = self.motorHistory[self.i, 1, 0]*200
+        left_motor  = pygame.Rect(1000, min(300-motor1, 300), 20, abs(motor1))
+        right_motor = pygame.Rect(1080, min(300-motor2, 300), 20, abs(motor2))
         pygame.draw.rect(screen, "red", left_motor)
         pygame.draw.rect(screen, "green", right_motor)
 
