@@ -4,9 +4,10 @@ from libs.DataObject import DataObject
 import numpy as np
 import time
 import pygame
+import matplotlib.pyplot as plt
 
 # Spacing for window
-DISPLAY_SPACING: int = 10
+DISPLAY_SPACING: int = 20
 
 class Simulation:
     def __init__(self, data: DataObject):
@@ -42,6 +43,7 @@ class Simulation:
         NOTE: Returns after "exit" command
         """
         while True:
+            plt.ion()
             value: float;
             str_value = input("Value: ")
             try:
@@ -55,8 +57,33 @@ class Simulation:
 
             self.filter.reset()
             setattr(self.filter, param, value)
+            plt.figure(0)
+            plt.clf();
+            plt.subplot(3, 1, 1)
+            plt.title("Angle")
+            plt.plot(self.stateHistory[:, 4, 0], label="before")
+            plt.subplot(3, 1, 2)
+            plt.title("Displacement")
+            plt.plot(self.stateHistory[:, 0, 0], label="x before")
+            plt.plot(self.stateHistory[:, 1, 0], label="y before")
+            plt.subplot(3, 1, 3)
+            plt.title("Velocity")
+            plt.plot(self.stateHistory[:, 2, 0], label="dx before")
+            plt.plot(self.stateHistory[:, 3, 0], label="dy before")
             self.run()
             self.showStatic()
+            plt.subplot(3, 1, 1)
+            plt.plot(self.stateHistory[:, 4, 0], label="after")
+            plt.legend()
+            plt.subplot(3, 1, 2)
+            plt.plot(self.stateHistory[:, 0, 0], label="x after")
+            plt.plot(self.stateHistory[:, 1, 0], label="y after")
+            plt.legend()
+            plt.subplot(3, 1, 3)
+            plt.plot(self.stateHistory[:, 2, 0], label="dx before")
+            plt.plot(self.stateHistory[:, 3, 0], label="dy before")
+            plt.legend()
+            plt.pause(0.1)
 
     def tune(self):
         """Enter tuning mode
@@ -186,10 +213,9 @@ class Simulation:
     def drawGPSPoints(self, screen):
         "Draw GPS points"
         for i in range(len(self.data)):
-            # TODO: Add scaling
-            centre = (self.data.at(i)["gpsX"], self.data.at(i)["gpsY"])
-            #centre[0] = self.scaleArrayToMinMax(0, 1000)
-            pygame.draw.circle(screen, 'red', centre, 1)
+            centre = np.array([[self.data.at(i)["gpsX"]], [self.data.at(i)["gpsY"]]])
+            centre = self.scale_m @ (centre - self.gps_min) + self.scale_c
+            pygame.draw.circle(screen, 'red', (centre[0,0], centre[1,0]), 3)
 
     def drawGPS(self, screen):
         "Draw GPS dot, shows on GPS update"
@@ -241,12 +267,12 @@ class Simulation:
             self.screen.fill("lightblue")
 
             # Start drawing
-            self.drawGPSPoints(self.screen)
             self.drawPath(self.screen)
             self.drawBoat(self.screen)
             self.drawMotors(self.screen)
             self.drawVel(self.screen)
             self.drawGPS(self.screen)
+            self.drawGPSPoints(self.screen)
             time.sleep(self.dtHistory[self.i])
 
             pygame.display.flip()
