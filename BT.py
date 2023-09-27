@@ -31,15 +31,17 @@ GRAY  = (180, 180, 180)
 
 g_debug = ""
 g_peripheral_connected = False
-g_GPS_AVAIL  : int = 1 << 0
-g_RC_AVAIL   : int = 1 << 1
-g_INIT       : int = 1 << 2
-g_RC_MODE    : int = 1 << 3
+g_GPS_AVAIL       : int = 1 << 0
+g_RC_AVAIL        : int = 1 << 1
+g_INIT            : int = 1 << 2
+g_RC_MODE         : int = 1 << 3
+g_MOVING_WAYPOINT : int = 1 << 4
 
-g_gps_avail  : bool = False
-g_rc_avail   : bool = False
-g_initialised: bool = False
-g_rc_mode    : bool = True
+g_gps_avail       : bool = False
+g_rc_avail        : bool = False
+g_initialised     : bool = False
+g_rc_mode         : bool = True
+g_moving_waypoint : bool = False
 
 class KalmanState:
     def update(self, vals):
@@ -125,10 +127,12 @@ class Peripheral:
         global g_rc_avail
         global g_rc_mode
         global g_initialised
+        global g_moving_waypoint
         g_gps_avail = bool(status & g_GPS_AVAIL)
         g_rc_avail = bool(status & g_RC_AVAIL)
         g_rc_mode  = bool(status & g_RC_MODE)
         g_initialised = bool(status & g_INIT)
+        g_moving_waypoint = bool(status & g_MOVING_WAYPOINT)
 
     def kalman_callback(self, _, val):
         global g_kalmanState
@@ -255,10 +259,10 @@ async def runDeviceLoop(address: str):
                     break
                 elif c == 't' or c == 'telemetry':
                     peripheral.dataRecorder.save()
-                    print('Telemetry saved')
+                    global g_debug
+                    g_debug += "\nTelemetry saved"
                 else:
                     await peripheral.writeCommand(c)
-            # TODO: finish runDevice
 
 class Radial:
     def __init__(self, x, y, width, height, title):
@@ -329,7 +333,7 @@ async def runDisplay():
      
     # Debug text
     debug_text = TextField(40, 10)
-    g_debug = "Press any key to start motor init\n"
+    g_debug = "\nPress any key to start motor init"
 
     # Indicators
     peripheral_indicator = Indicator(40, 100, "Arduino connected")
@@ -337,10 +341,11 @@ async def runDisplay():
     rc_indicator = Indicator(40, 160, "RC available")
     rc_mode = Indicator(40, 190, "RC mode")
     init_indicator = Indicator(40, 220, "Initialised")
+    moving_waypoint_indicator = Indicator(40, 250, "Moving waypoint")
 
-    velocity = Radial(40, 250, 200, 200, "Velocity")
-    heading = Radial(250, 250, 200, 200, "Heading")
-    motor  = Radial(40, 490, 200, 200, "Motors")
+    velocity = Radial(40, 280, 200, 200, "Velocity")
+    heading = Radial(250, 280, 200, 200, "Heading")
+    motor  = Radial(40, 520, 200, 200, "Motors")
 
     while running:
         for event in pygame.event.get():
@@ -358,15 +363,17 @@ async def runDisplay():
                 elif event.key == pygame.K_RIGHT:
                     g_command = 'r'
                 elif event.key == pygame.K_h:
-                    g_command = 'h'
+                    g_command = 'h' # unused
                 elif event.key == pygame.K_t:
-                    g_command = 't'
+                    g_command = 't' # telemetry
                 elif event.key == pygame.K_s:
-                    g_command = 's'
+                    g_command = 's' # send coords
                 elif event.key == pygame.K_k:
-                    g_command = 'k'
+                    g_command = 'k' # unused
                 elif event.key == pygame.K_m:
-                    g_command = 'm'
+                    g_command = 'm' # follow waypoints
+                elif event.key == pygame.K_a:
+                    g_command = 'a' # following moveing waypoint
 
             if event.type == pygame.MOUSEBUTTONUP:
                 pass
@@ -378,6 +385,7 @@ async def runDisplay():
         rc_indicator.blit(screen, g_rc_avail)
         rc_mode.blit(screen, g_rc_mode)
         init_indicator.blit(screen, g_initialised)
+        moving_waypoint_indicator.blit(screen, g_moving_waypoint)
 
         # Radials
         if g_kalmanState.isReady():
