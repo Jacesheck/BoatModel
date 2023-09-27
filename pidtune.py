@@ -29,7 +29,7 @@ def constrain(val: float, max: float) -> float:
     else:
         return val
 
-def main():
+def tuneAngle():
     plt.ion()
     p, d = (float(num) for num in input("PID: ").split(" "))
     boat = KalmanFilter()
@@ -54,6 +54,74 @@ def main():
     plt.title('Output')
     plt.plot(time, outputs)
     plt.pause(0.1)
+
+def tuneDist():
+    plt.ion()
+    p, d = (float(num) for num in input("PID: ").split(" "))
+    boat = KalmanFilter()
+    dt = 0.1
+    time = np.arange(0, 10, dt)
+    pid  = PID(p, 0, d)
+    distances = []
+    outputs = []
+    boat.x[4,0] = 0
+    for _ in time:
+        dist = boat.x[1, 0]
+        val = pid.run(5, dist, dt=dt)
+        val = constrain(val, 1)
+        boat.predict(np.array([[val], [val]]), dt)
+        outputs.append(val)
+        distances.append(dist)
+
+    plt.figure(0)
+    plt.title("Distances")
+    plt.plot(time, distances)
+
+    plt.figure(1)
+    plt.title('Output')
+    plt.plot(time, outputs)
+    plt.pause(0.1)
+
+
+def tuneMovingDist():
+    plt.ion()
+    p, d = (float(num) for num in input("PID: ").split(" "))
+    boat = KalmanFilter()
+    dt = 0.1
+    time = np.arange(0, 10, dt)
+    pid  = PID(p, 0, d)
+    speeds = []
+    outputs = []
+    boat.x[4,0] = 0
+    goal = 0
+    for _ in time:
+        goal += 0.1 # 1 m/s
+        dist = boat.x[1, 0]
+        val = pid.run(goal, dist, dt=dt)
+        val = constrain(val, 1)
+        boat.predict(np.array([[val], [val]]), dt)
+        outputs.append(val)
+        dx = boat.x[2, 0]
+        dy = boat.x[3, 0]
+        speed = np.sqrt(np.power(dx, 2) + np.power(dy, 2))
+        speeds.append(speed)
+
+    plt.figure(0)
+    plt.title("Speeds")
+    plt.plot(time, speeds)
+
+    plt.figure(1)
+    plt.title('Output')
+    plt.plot(time, outputs)
+    plt.pause(0.1)
+
+def main():
+    pass
+    #tuneAngle()
+    tuneDist()
+    #tuneMovingDist()
+    pass
+
 
 if __name__ == "__main__":
     while True:
