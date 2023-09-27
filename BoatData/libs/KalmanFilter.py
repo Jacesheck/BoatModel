@@ -2,6 +2,8 @@ import numpy as np
 from libs.PID import PID
 from libs.Point import Point
 
+NEW_BOAT: bool = True
+
 
 # Notes
 # m states
@@ -25,13 +27,22 @@ class KalmanFilter():
         """6 parameter kalman filter for boat with drift"""
         self.reset()
 
-        self.b1         = 2. # drag on water
-        self.b2         = 3. # Rotational drag
-        self.gpsNoise   = 4.
-        self.gpsAngleNoise = 10.
-        self.gyroNoise  = 0.1
-        self.motorForce = 0.4
-        self.motorTorque = 50.
+        if (NEW_BOAT):
+            self.b1         = 0.8 # drag on water
+            self.b2         = 3. # Rotational drag
+            self.gpsNoise   = 4.
+            self.gpsAngleNoise = 10.
+            self.gyroNoise  = 0.1
+            self.motorForce = 0.6
+            self.motorTorque = 50.
+        else:
+            self.b1         = 2. # drag on water
+            self.b2         = 3. # Rotational drag
+            self.gpsNoise   = 4.
+            self.gpsAngleNoise = 10.
+            self.gyroNoise  = 0.1
+            self.motorForce = 0.4
+            self.motorTorque = 50.
 
     def reset(self):
         """Set all states to initial defaults"""
