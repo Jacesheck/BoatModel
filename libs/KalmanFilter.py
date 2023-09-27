@@ -34,7 +34,7 @@ class KalmanFilter():
             self.gpsAngleNoise = 10.
             self.gyroNoise  = 0.1
             self.motorForce = 0.6
-            self.motorTorque = 50.
+            self.motorTorque = 100.
         else:
             self.b1         = 2. # drag on water
             self.b2         = 3. # Rotational drag
@@ -124,7 +124,7 @@ class KalmanFilter():
 
         self.x = F@self.x + self.B@u
         self.P = F@self.P@F.T + self.Q
-
+        self.wrapTheta()
 
     def wrap180(self, angle: float) -> float:
         """Wrap angle to 180
