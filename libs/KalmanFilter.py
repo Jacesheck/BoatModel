@@ -1,6 +1,8 @@
 import numpy as np
-from PID import PID
-from Point import Point
+from libs.PID import PID
+from libs.Point import Point
+
+NEW_BOAT: bool = True
 
 
 # Notes
@@ -25,11 +27,22 @@ class KalmanFilter():
         """6 parameter kalman filter for boat with drift"""
         self.reset()
 
-        self.b1         = 2. # drag on water
-        self.b2         = 3. # Rotational drag
-        self.gpsNoise   = 2.
-        self.gyroNoise  = 0.1
-        self.motorForce = 0.001
+        if (NEW_BOAT):
+            self.b1         = 0.8 # drag on water
+            self.b2         = 3. # Rotational drag
+            self.gpsNoise   = 4.
+            self.gpsAngleNoise = 10.
+            self.gyroNoise  = 0.1
+            self.motorForce = 0.6
+            self.motorTorque = 100.
+        else:
+            self.b1         = 2. # drag on water
+            self.b2         = 3. # Rotational drag
+            self.gpsNoise   = 4.
+            self.gpsAngleNoise = 10.
+            self.gyroNoise  = 0.1
+            self.motorForce = 0.4
+            self.motorTorque = 50.
 
     def reset(self):
         """Set all states to initial defaults"""
@@ -52,12 +65,12 @@ class KalmanFilter():
                            [0., 0., 0., 0., 0., 0.]])
 
         "Process uncertainty"
-        self.Q = np.array([[.5, 0., 0., 0., 0., 0.],
-                           [0., .5, 0., 0., 0., 0.],
-                           [0., 0., 5., 0., 0., 0.],
-                           [0., 0., 0., 5., 0., 0.],
-                           [0., 0., 0., 0., 1., 0.],
-                           [0., 0., 0., 0., 0., 2.]])
+        self.Q = np.array([[.05, 0., 0., 0., 0., 0.],
+                           [0., .05, 0., 0., 0., 0.],
+                           [0., 0., .5, 0., 0., 0.],
+                           [0., 0., 0., .5, 0., 0.],
+                           [0., 0., 0., 0., .1, 0.],
+                           [0., 0., 0., 0., 0., 1.]])
 
         "Input matrix"
         self.B = np.array([[0., 0.],
@@ -77,8 +90,10 @@ class KalmanFilter():
         b1 (water drag)     : {self.b1}
         b2 (rotational drag): {self.b2}
         gpsNoise            : {self.gpsNoise}
+        gpsAngleNoise       : {self.gpsAngleNoise}
         gyroNoise           : {self.gyroNoise}
         motorForce          : {self.motorForce}
+        motorTorque         : {self.motorTorque}
         """)
 
 
@@ -105,11 +120,11 @@ class KalmanFilter():
                            [self.motorForce*dt*np.sin(theta_r), self.motorForce*dt*np.sin(theta_r)],
                            [self.motorForce*dt*np.cos(theta_r), self.motorForce*dt*np.cos(theta_r)],
                            [0., 0.],
-                           [self.motorForce*0.5*dt*self.w/2., -self.motorForce*0.5*dt*self.w/2.]])
+                           [self.motorTorque*dt, -self.motorTorque*dt]])
 
         self.x = F@self.x + self.B@u
         self.P = F@self.P@F.T + self.Q
-
+        self.wrapTheta()
 
     def wrap180(self, angle: float) -> float:
         """Wrap angle to 180
@@ -179,11 +194,13 @@ class KalmanFilter():
                       [0., 1., 0., 0., 0., 0.],
                       [0., 0., 0., 0., 1., 0.],
                       [0., 0., 0., 0., 0., 1.]])
+        #H[2, 4] = 1 if 1 > self.gpsNoise else 0
 
         R = np.array([[self.gpsNoise, 0., 0., 0.], # Tune for gps
                       [0., self.gpsNoise, 0., 0.],
-                      [0., 0., self.gpsNoise/data['dist_gps'], 0.],
+                      [0., 0., 1e-9, 0.],
                       [0., 0., 0., self.gyroNoise]])
+        R[2, 2] = max([0., self.gpsAngleNoise*(0.5 - data['dist_gps'])]);
 
         y      = z - H@self.x
         y[2,0] = self.wrap180(y[2,0])

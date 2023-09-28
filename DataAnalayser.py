@@ -3,8 +3,8 @@ import json
 import sys
 import numpy as np
 
-from Simulation import Simulation
-from DataObject import DataObject
+from libs.Simulation import Simulation
+from libs.DataObject import DataObject
 
 def main():
     args = sys.argv
@@ -18,19 +18,9 @@ def main():
         data = json.load(f)
     decoded_data = DataObject(data)
 
-    #timestamps = decoded_data['timestamp']
-    #X = decoded_data['gpsX']
-    #Y = decoded_data['gpsY']
-    #lat = decoded_data['gpsLat']
-    #lng = decoded_data['gpsLng']
-    #motor1 = decoded_data['power1']
-    #motor2 = decoded_data['power2']
-    #gyro = decoded_data['rz']
-
     sim = Simulation(decoded_data)
     sim.createScaleFromGPS(1000, 600)
     sim.run()
-    #sim.clip(10, 1)
     sim.showStatic()
     while(1):
         print("\n(tune) (show) (exit)")

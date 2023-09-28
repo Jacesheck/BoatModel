@@ -2,6 +2,11 @@ import pygame
 import numpy as np
 import time
 
+from libs.KalmanFilter import KalmanFilter
+from libs.PID import PID
+
+SCALE_FACTOR: float = 21.
+
 def normalize(input1: float, input2: float, max: float) -> tuple[float, float]:
     """Sandbox normlise function
     --------
@@ -21,61 +26,8 @@ def normalize(input1: float, input2: float, max: float) -> tuple[float, float]:
         input2 /= total
     return input1, input2
 
-class PID:
-    def __init__(self, p: float, i: float, d: float):
-        """Pid controller
-        -------
-        Parameters
-        p : float
-            Proportional value
-        i : float
-            Integral value
-        d : float
-            Derivative value
-        """
-        self.p = p
-        self.i = i
-        self.d = d
-        self.time = time.time()
-        self.accum = 0
-        self.e_prev = 0
-        self.goal = 0
-
-    def run(self, observation: float, setpoint: float, new: bool=False) -> float:
-        """Run pid controller
-        ---------
-        Parameters
-        observation : float
-            Observation of value
-        setpoint : float
-            Setpoint goal
-        new : bool
-            Is new setpoint
-        --------
-        Return output value : float
-        """
-        newTime = time.time()
-        dt = newTime - self.time
-        self.time = newTime
-        if dt == 0:
-            time.sleep(0.001)
-            return self.run(observation, setpoint)
-
-        e = setpoint - observation
-        if new:
-            self.goal = setpoint
-            self.accum = 0
-            de = 0.
-        else:
-            de: float = e - self.e_prev
-        sum = self.accum
-        self.accum += e * dt
-        self.e_prev = e
-
-        return self.p * e + self.d * de/dt + self.i * sum * dt
-
 class Waypoint:
-    def __init__(self, pos : tuple[int, int]):
+    def __init__(self, pos : tuple[float, float]):
         """Waypoint created with mouse press
         -------
         Parameters
@@ -88,8 +40,8 @@ class Waypoint:
         """Draw waypoint on screen"""
         pygame.draw.circle(screen, "red", self.pos, 3)
 
-class Boat:
-    def __init__(self, x: float, y: float, w: float):
+class Boat(KalmanFilter) :
+    def __init__(self, x: float, y: float):
         """Boat object with integrated kalman filter
         -------
         Parameters
@@ -100,45 +52,21 @@ class Boat:
         w : float
             Width of boat (for kalman filter)
         """
+        KalmanFilter.__init__(self)
         self.boatImg = pygame.image.load('boat.png')
-
-        self.w = w
-        self.x = np.array([[x], # x
-                           [y], # y
-                           [0.], # v_x
-                           [0.], # v_y
-                           [0.], # theta
-                           [0.]])# theta_dot
-
-        self.F = np.array([[1, 0, 0, 0, 0, 0],
-                           [0, 1, 0, 0, 0, 0],
-                           [0, 0, 1, 0, 0, 0],
-                           [0, 0, 0, 1, 0, 0],
-                           [0, 0, 0, 0, 1, 0],
-                           [0, 0, 0, 0, 0, 1]])
-
-        self.B = np.array([[0., 0.],
-                           [0., 0.],
-                           [1., 1.],
-                           [1., 1.],
-                           [0., 0.],
-                           [1., -1.]])
-
-        self.u = np.array([[0., 0.]]).transpose()
-        self.b1 = 2
-        self.b2 = 3
-        self.motorForce = 0.4
-
         self.time = time.time()
+        self.u = np.array([[0., 0.]]).transpose()
+        self.x[0, 0] = x
+        self.x[1, 0] = y
 
         self.turnPid = PID(1, 0, 0.5)
 
-    def pos(self) -> tuple[float, float]:
+    def pos(self) -> list[float]:
         """Return position of boat as tuple
         -------
         Return position of boat : tuple[float, float]"""
 
-        return (self.x[0,0], self.x[1,0])
+        return [self.x[0,0], self.x[1,0]]
 
     def auto(self, waypoint: Waypoint) -> bool:
         """ Runs the auto waypoint mode
@@ -203,27 +131,8 @@ class Boat:
         dt = newTime - self.time
         self.time = newTime
 
-        theta_r = self.x[4,0] * np.pi / 180.
-
-        self.F = np.array([[1., 0., dt, 0., 0., 0.],
-                           [0., 1., 0., dt, 0., 0.],
-                           [0., 0., 1.-dt*self.b1, 0., 0., 0.],
-                           [0., 0., 0., 1.-dt*self.b1, 0., 0.],
-                           [0., 0., 0., 0., 1., dt],
-                           [0., 0., 0., 0., 0., 1-dt*self.b2]])
-
-        self.B = np.array([[0, 0],
-                           [0, 0],
-                           [400*self.motorForce*dt*np.cos(theta_r), 400*self.motorForce*dt*np.cos(theta_r)],
-                           [400*self.motorForce*dt*np.sin(theta_r), 400*self.motorForce*dt*np.sin(theta_r)],
-                           [0, 0],
-                           [400*self.motorForce*dt*self.w/2, -400*self.motorForce*dt*self.w/2]])
-
-        print(f"{self.x = }")
-        self.x = self.F@self.x + self.B@self.u
-        # Stops boat angle getting above 360 degrees
-        self.x[4,0] = self.x[4,0] % (2*np.pi)
-    
+        super().predict(self.u, dt)
+        print(self.x)
 
     def draw(self, screen, waypoint: Waypoint | None = None):
         """Draw boat
@@ -274,7 +183,7 @@ if __name__ == "__main__":
     clock = pygame.time.Clock()
     running = True
 
-    boat = Boat(300, 300, 0.8)
+    boat = Boat(300, 300)
     waypoints = []
     while running:
 
