@@ -16,9 +16,6 @@ COORDS_UUID    = "3794c841-1b53-4029-aebb-12319386fd28"
 TELEMETRY_UUID = "ccc03716-4f66-4cb8-b6fd-9b2278587add"
 KALMAN_UUID    = "933963ae-cc8e-4704-bd3c-dc53721ba956"
 
-TELEMETRY_FILE = "BoatData/telemetry/telem" + time.asctime().replace(':','.').replace(' ','_') + ".json"
-KALMAN_FILE    = "BoatData/telemetry/kalman" + time.asctime().replace(':','.').replace(' ','_') + ".json"
-
 LOOP_PERIOD = 0.01 # s
 
 pygame.init()
@@ -94,9 +91,11 @@ class DataRecorder:
         print('Saving file of length', len(self.telemetry))
         if not os.path.exists('BoatData/telemetry'):
             os.makedirs("BoatData/telemetry")
-        with open(TELEMETRY_FILE,'w') as f:
+        telemetry_file = "BoatData/telemetry/telem" + time.asctime().replace(':','.').replace(' ','_') + ".json"
+        kalman_file    = "BoatData/telemetry/kalman" + time.asctime().replace(':','.').replace(' ','_') + ".json"
+        with open(telemetry_file,'w') as f:
             json.dump(self.telemetry, f)
-        with open(KALMAN_FILE,'w') as f:
+        with open(kalman_file,'w') as f:
             json.dump(self.kalman, f)
         self.telemetry = []
         self.kalman = []
