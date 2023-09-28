@@ -2,16 +2,16 @@
 <gpx version="1.1" creator="http://www.geoplaner.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.topografix.com/GPX/1/1" xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
 <rte>
 <name>Route1</name>
-<rtept lat="-37.82065" lon="145.03482">
+<rtept lat="-37.83221" lon="145.00385">
 <name>WP01-A</name>
 </rtept>
-<rtept lat="-37.82075" lon="145.0348">
+<rtept lat="-37.83239" lon="145.00392">
 <name>WP02-B</name>
 </rtept>
-<rtept lat="-37.82074" lon="145.03435">
+<rtept lat="-37.83234" lon="145.00404">
 <name>WP03-C</name>
 </rtept>
-<rtept lat="-37.82063" lon="145.03442">
+<rtept lat="-37.83214" lon="145.00398">
 <name>WP04-D</name>
 </rtept>
 </rte>
