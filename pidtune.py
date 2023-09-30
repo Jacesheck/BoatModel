@@ -117,8 +117,8 @@ def tuneMovingDist():
 
 def main():
     pass
-    #tuneAngle()
-    tuneDist()
+    tuneAngle()
+    #tuneDist()
     #tuneMovingDist()
     pass
 
