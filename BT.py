@@ -370,7 +370,8 @@ async def runDisplay():
                 break
 
             if event.type == pygame.KEYDOWN:
-                g_command = KEY_CODES[event.key]
+                if (event.key in KEY_CODES.keys()):
+                    g_command = KEY_CODES[event.key]
             if event.type == pygame.MOUSEBUTTONUP:
                 pass
         screen.fill("white")
