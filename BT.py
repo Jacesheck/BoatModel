@@ -8,6 +8,7 @@ import time
 import json
 import pygame
 import numpy as np
+from libs.Keycodes import KEY_CODES
 
 DEBUG_UUID     = "45c1eda2-4473-42a3-8143-dc79c30a64bf"
 STATUS_UUID    = "6f04c0a3-f201-4091-a13d-5ecafc3dc54b"
@@ -369,27 +370,7 @@ async def runDisplay():
                 break
 
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_UP:
-                    g_command = 'f'
-                elif event.key == pygame.K_DOWN:
-                    g_command = 'b'
-                elif event.key == pygame.K_LEFT:
-                    g_command = 'l'
-                elif event.key == pygame.K_RIGHT:
-                    g_command = 'r'
-                elif event.key == pygame.K_h:
-                    g_command = 'h' # unused
-                elif event.key == pygame.K_t:
-                    g_command = 't' # telemetry
-                elif event.key == pygame.K_s:
-                    g_command = 's' # send coords
-                elif event.key == pygame.K_k:
-                    g_command = 'k' # unused
-                elif event.key == pygame.K_m:
-                    g_command = 'm' # follow waypoints
-                elif event.key == pygame.K_a:
-                    g_command = 'a' # following moveing waypoint
-
+                g_command = KEY_CODES[event.key]
             if event.type == pygame.MOUSEBUTTONUP:
                 pass
         screen.fill("white")
