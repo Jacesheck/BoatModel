@@ -7,7 +7,7 @@ import pygame
 import matplotlib.pyplot as plt
 
 # Spacing for window
-DISPLAY_SPACING: int = 20
+DISPLAY_SPACING: int = 50
 
 class Simulation:
     def __init__(self, data: DataObject):

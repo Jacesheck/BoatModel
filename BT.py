@@ -8,6 +8,7 @@ import time
 import json
 import pygame
 import numpy as np
+from libs.Keycodes import KEY_CODES
 
 DEBUG_UUID     = "45c1eda2-4473-42a3-8143-dc79c30a64bf"
 STATUS_UUID    = "6f04c0a3-f201-4091-a13d-5ecafc3dc54b"
@@ -52,16 +53,18 @@ class KalmanState:
     def isReady(self) -> bool:
         return hasattr(self, 'x')
 
-class MotorState:
+class ArduinoState:
     def update(self, vals):
-        self.motorLeft = vals[4]
-        self.motorRight = vals[5]
+        self.motorLeft = vals["powerLeft"]
+        self.motorRight = vals["powerRight"]
+        self.wpHeading = vals["wpHeading"]
+        self.wpDist    = vals["wpDist"]
 
     def isReady(self) -> bool:
         return hasattr(self, 'motorLeft')
 
 g_kalmanState = KalmanState()
-g_motorState = MotorState()
+g_arduinoState = ArduinoState()
 
 g_command : str | None = None
 
@@ -149,8 +152,8 @@ class Peripheral:
         g_kalmanState.update(state)
 
     def telem_callback(self, _, val):
-        global g_motorState
-        telem: list[float] = list(struct.unpack('<ddddfff', val))
+        global g_arduinoState
+        telem: list[float] = list(struct.unpack('<ddddfffff', val))
         named_telem = {
             "timestamp": time.time(),
             "gpsX" : telem[0],
@@ -159,10 +162,12 @@ class Peripheral:
             "lng" : telem[3],
             "powerLeft" : telem[4],
             "powerRight" : telem[5],
-            "rz" : telem[6]
+            "rz" : telem[6],
+            "wpHeading" : telem[7],
+            "wpDist" : telem[8],
         }
         self.dataRecorder.appendTelem(named_telem)
-        g_motorState.update(telem)
+        g_arduinoState.update(named_telem)
 
     async def connect(self):
         global g_status
@@ -214,7 +219,8 @@ def getCoordsFromFile() -> bytes:
     Return bytes of doubles : bytes"""
     with open('route.gpx', 'r') as f:
         text = f.read()
-    found = re.findall(r'<rtept lat="(.+?)" lon="(.+?)"', text)
+    found = re.findall(r'lat="(.+?)" lon="(.+?)"', text)
+    print('found', found)
     ret = b''
     for coord in found:
         lat = float(coord[0])
@@ -249,6 +255,7 @@ async def runDeviceLoop(address: str):
                 g_command = None
                 if c == 's' or c == 'send':
                     coords = getCoordsFromFile()
+                    print('Coords:', len(coords), coords)
                     await peripheral.writeCoords(coords)
                 elif c == 'x' or c == 'exit':
                     print('Disconnecting...')
@@ -276,7 +283,14 @@ class Radial:
         self.center_x = self.x + (self.width / 2)
         self.center_y = self.y + (self.height / 2)
 
-    def blit(self, screen, x: float, y: float):
+    def drawStick(self, screen, x: float, y: float, color: tuple[int, int, int]):
+        ball = (self.center_x + (x * self.width/2),
+                self.center_y - (y * self.height/2))
+        pygame.draw.circle(screen, color, ball, 5)
+        pygame.draw.line(screen, color, (self.center_x,  self.center_y), ball,
+                         2)
+
+    def blit(self, screen, x: float, y: float, x2: None | float = None, y2: None | float = None):
         """Draw Radial to screen
         --------
         Parameters
@@ -287,23 +301,22 @@ class Radial:
         """
         screen.blit(self.title, self.title_rect)
         pygame.draw.rect(screen, GRAY, self.back_rect)
-        mover_center = (self.center_x + (x * self.width/2),
-                        self.center_y - (y * self.height/2))
-        pygame.draw.circle(screen, BLACK, mover_center, 5)
-        pygame.draw.line(screen, BLACK,
-                (self.center_x,  self.center_y), mover_center, 2)
+        if x2 != None and y2 != None:
+            self.drawStick(screen, x2, y2, RED)
+        self.drawStick(screen, x, y, BLACK)
 
 class TextField:
-    def __init__(self, x, y):
-        self.text_field_rect = pygame.Rect(x, y, 400, 3*26)
+    def __init__(self, x, y, lines):
+        self.text_field_rect = pygame.Rect(x, y, 400, lines*26)
+        self.lines = lines
         self.x = x
         self.y = y
 
-    def blit(self, multi_line_text, screen):
+    def blit(self, screen, multi_line_text):
         split: list[str] = multi_line_text.split("\n")
         y = self.y 
         pygame.draw.rect(screen, GRAY, self.text_field_rect)
-        for i in range(max(-len(split), -3), 0):
+        for i in range(max(-len(split), -self.lines), 0):
             debug_text = FONT.render(split[i], True, BLACK, GRAY)
             debug_rect = debug_text.get_rect()
             debug_rect.topleft = (self.x, y)
@@ -331,7 +344,7 @@ async def runDisplay():
     running = True
      
     # Debug text
-    debug_text = TextField(40, 10)
+    debug_text = TextField(40, 10, lines=3)
     g_debug = "\nPress any key to start motor init"
 
     # Indicators
@@ -344,6 +357,9 @@ async def runDisplay():
 
     velocity = Radial(40, 280, 200, 200, "Velocity")
     heading = Radial(250, 280, 200, 200, "Heading")
+    distText = TextField(250, 520, 1)
+    xText = TextField(250, 550, 1)
+    yText = TextField(250, 580, 1)
     motor  = Radial(40, 520, 200, 200, "Motors")
 
     while running:
@@ -353,27 +369,8 @@ async def runDisplay():
                 break
 
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_UP:
-                    g_command = 'f'
-                elif event.key == pygame.K_DOWN:
-                    g_command = 'b'
-                elif event.key == pygame.K_LEFT:
-                    g_command = 'l'
-                elif event.key == pygame.K_RIGHT:
-                    g_command = 'r'
-                elif event.key == pygame.K_h:
-                    g_command = 'h' # unused
-                elif event.key == pygame.K_t:
-                    g_command = 't' # telemetry
-                elif event.key == pygame.K_s:
-                    g_command = 's' # send coords
-                elif event.key == pygame.K_k:
-                    g_command = 'k' # unused
-                elif event.key == pygame.K_m:
-                    g_command = 'm' # follow waypoints
-                elif event.key == pygame.K_a:
-                    g_command = 'a' # following moveing waypoint
-
+                if (event.key in KEY_CODES.keys()):
+                    g_command = KEY_CODES[event.key]
             if event.type == pygame.MOUSEBUTTONUP:
                 pass
         screen.fill("white")
@@ -389,15 +386,21 @@ async def runDisplay():
         # Radials
         if g_kalmanState.isReady():
             velocity.blit(screen, g_kalmanState.vx, g_kalmanState.vy)
-            heading.blit(screen, 0.5*np.sin(np.deg2rad(g_kalmanState.heading)),
-                         0.5*np.cos(np.deg2rad(g_kalmanState.heading)))
-        if g_motorState.isReady():
-            l = g_motorState.motorLeft
-            r = g_motorState.motorRight
+            heading.blit(screen, 
+                         0.5*np.sin(np.deg2rad(g_kalmanState.heading)),
+                         0.5*np.cos(np.deg2rad(g_kalmanState.heading)),
+                         0.5*np.sin(np.deg2rad(g_arduinoState.wpHeading)),
+                         0.5*np.cos(np.deg2rad(g_arduinoState.wpHeading)))
+            distText.blit(screen, "Dist: " + str(g_arduinoState.wpDist) + "m")
+            xText.blit(screen, "X: " + str(g_kalmanState.x) + "m")
+            yText.blit(screen, "Y: " + str(g_kalmanState.y) + "m")
+        if g_arduinoState.isReady():
+            l = g_arduinoState.motorLeft
+            r = g_arduinoState.motorRight
             motor.blit(screen, l - r, l + r)
 
         # Debug stream
-        debug_text.blit(g_debug, screen)
+        debug_text.blit(screen, g_debug)
 
         pygame.display.flip()
         await asyncio.sleep(LOOP_PERIOD)
